@@ -1,0 +1,91 @@
+syntax = "proto3";
+import "dependencies.proto";
+
+package submit;
+
+message Point3Msg {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+}
+
+message OptionPoint3Msg {
+    Point3Msg pt = 1;
+}
+
+message LineMsg {
+    Point3Msg first = 1;
+    Point3Msg second = 2;
+}
+
+message OptionLineMsg {
+    LineMsg line = 1;
+}
+
+message PlaneMsg {
+    Point3Msg first = 1;
+    Point3Msg second = 2;
+    Point3Msg third = 3;
+}
+
+message OptionPlaneMsg {
+    PlaneMsg plane = 1;
+}
+
+message ProfileMsg {
+    repeated OptionPoint3Msg points = 1;
+    repeated OptionLineMsg lines = 2;
+    repeated OptionPlaneMsg planes = 3;
+}
+
+message AxisAlignedBBoxMsg {
+    Point3Msg bottom_left = 1;
+    Point3Msg top_right = 2;
+}
+
+message PropertyMsg {
+    string key = 1;
+    string value = 2;
+}
+
+message PropertiesMsg {
+    repeated PropertyMsg properties  =1;
+}
+
+message ResultsMsg {
+    bool visible = 1;
+    ProfileMsg profile = 2;
+    AxisAlignedBBoxMsg bbox = 3;
+    PropertiesMsg properties = 4;
+}
+
+message ObjectMsg {
+    string id = 1;
+    dependencies.DependenciesMsg dependencies = 2;
+    ResultsMsg results = 3;
+    bytes obj_data = 4;
+}
+
+message SubmitChangeMsg {
+    string id = 1;
+    enum ChangeType {
+        ADD = 0;
+        MODIFY = 1;
+        DELETE = 2;
+    }
+    ChangeType change_type = 2;
+    ObjectMsg object = 3;
+}
+
+message SubmitChangesInput {
+    string file = 1;
+    repeated SubmitChangeMsg changes = 2;
+}
+
+message SubmitChangesOutput {
+    uint64 change_id = 1;
+}
+
+service SubmitChanges {
+    rpc SubmitChanges(SubmitChangesInput) returns (SubmitChangesOutput);
+}

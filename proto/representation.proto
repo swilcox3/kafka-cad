@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package representation;
+
+message Point3Msg {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+}
+
+message Point2Msg {
+    double x = 1;
+    double y = 2;
+}
+
+message MeshDataMsg
+{
+    repeated double positions = 2;
+    repeated uint64 indices = 3;
+    string meta_json = 4;
+}
+
+message InstanceDataMsg
+{
+    repeated double transform = 2;
+    Point3Msg bottom_left = 3;
+    Point3Msg top_right = 4;
+    string source = 5;
+    string meta_json = 6;
+}
+
+message RGBAMsg
+{
+    uint32 r = 1;
+    uint32 g = 2;
+    uint32 b = 3;
+    float a = 4;
+}
+
+message Line2DMsg
+{
+    Point2Msg first = 1;
+    Point2Msg second = 2;
+}
+
+message Rect2DMsg
+{
+    Point2Msg bottom_left = 1;
+    Point2Msg top_right = 2;
+}
+
+message Arc2DMsg
+{
+    Point2Msg center = 1;
+    double radius = 2;
+    double start_angle = 3;
+    double end_angle = 4;
+}
+
+message Poly2DMsg{
+    repeated Point2Msg pts = 1;
+}
+
+message DrawElement2DMsg
+{
+    oneof element {
+        Line2DMsg line = 1;
+        Arc2DMsg arc = 2;
+        Rect2DMsg rect = 3;
+        Poly2DMsg poly = 4;
+    }
+    float line_thickness = 5;
+    RGBAMsg line_color = 6;
+    oneof fill_type {
+        RGBAMsg fill_solid = 7;
+        string hatch = 8;
+    }
+    oneof line_type {
+        string line_solid = 9;
+        string dashed = 10;
+    }
+}
+
+message DrawingDataMsg
+{
+    repeated DrawElement2DMsg elements = 1;
+}
+
+message DrawingViewsMsg
+{
+    DrawingDataMsg top = 1;
+    DrawingDataMsg front = 2;
+    DrawingDataMsg left = 3;
+    DrawingDataMsg right = 4;
+    DrawingDataMsg back = 5;
+    DrawingDataMsg bottom = 6;
+}
+
+message UpdateOutputMsg
+{
+    oneof output {
+        string empty = 1;
+        string delete = 2;
+        MeshDataMsg mesh = 3;
+        string file_ref = 4;
+        InstanceDataMsg instance = 5;
+        string other_json = 6;
+    }
+    DrawingViewsMsg views = 7;
+}
+
+message UpdateChangeMsg
+{
+    string file = 1;
+    string user = 2;
+    uint64 change = 3;
+    string obj_id = 4;
+    UpdateOutputMsg update = 5;
+}
+
+

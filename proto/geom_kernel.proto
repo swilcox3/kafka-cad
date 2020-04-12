@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package geom_kernel;
+
+message Point3Msg {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+}
+
+message MakePrismInput {
+    Point3Msg firstPt = 1;
+    Point3Msg secondPt = 2;
+    double width = 3;
+    double height = 4;
+}
+
+message MakePrismOutput {
+    repeated double positions = 1;
+    repeated uint64 indices = 2;
+}
+
+service GeometryKernel {
+    rpc MakePrism(MakePrismInput) returns (MakePrismOutput) {}
+}

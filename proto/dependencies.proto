@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package dependencies;
+
+message RefIDMsg {
+    string id = 1;
+    enum RefType {
+        EXISTENCE = 0;
+        VISIBILITY = 1;
+        AXIS_ALIGNED_BBOX = 2;
+        PROFILE_POINT = 3;
+        PROFILE_LINE = 4;
+        PROFILE_PLANE = 5;
+        PROPERTY = 6;
+    }
+    RefType ref_type = 2;
+    uint64 index = 3;
+}
+
+message ReferenceMsg {
+    RefIDMsg owner = 1;
+    RefIDMsg other = 2;
+}
+
+message DependenciesMsg {
+    repeated ReferenceMsg references = 1;
+}
+
+message GetAllDependenciesInput {
+    repeated RefIDMsg ids = 1;
+}
+
+message GetAllDependenciesOutput {
+    repeated ReferenceMsg references = 1;
+}
+
+service Dependencies {
+    rpc GetAllDependencies(GetAllDependenciesInput) returns (GetAllDependenciesOutput);
+}
+
+
+

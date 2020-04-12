@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package api;
+
+message OpenFileInput {
+    string file = 1;
+    string user = 2;
+}
+
+message OpenFileOutput {
+    updates.UpdateChangeMsg update = 1;
+}
+
+message BeginUndoEventInput {
+    string file = 1;
+    string user = 2;
+}
+
+message BeginUndoEventOutput {
+    string event = 1;
+}
+
+message UndoLatestInput {
+    string file = 1;
+    string user = 2;
+}
+
+message UndoLatestOutput {
+    uint64 change = 1;
+}
+
+message RedoLatestInput {
+    string file = 1;
+    string user = 2;
+}
+
+message RedoLatestOutput {
+    uint64 change = 1;
+}
+
+message Point3Msg {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+}
+
+message OpPrefixMsg {
+    string file = 1;
+    string user = 2;
+    string event = 3;
+    uint64 cur_change = 4;
+}
+
+message CreateWallInput {
+    OpPrefixMsg prefix = 1;
+    Point3Msg first_pt = 2;
+    Point3Msg second_pt = 3;
+    double width = 4;
+    double height = 5;
+}
+
+message CreateWallOutput {
+    string obj_id = 1;
+    uint64 change = 2;
+}
+
+service Api 
+{
+    rpc OpenFile(OpenFileInput) returns (stream OpenFileOutput);
+    rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
+    rpc UndoLatest(UndoLatestInput) returns (UndoLatestOutput);
+    rpc RedoLatest(RedoLatestInput) returns (RedoLatestOutput);
+    rpc CreateWall(CreateWallInput) returns (CreateWallOutput);
+}

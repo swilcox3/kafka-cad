@@ -1,0 +1,44 @@
+syntax = "proto3";
+import "objects.proto";
+import "representation.proto";
+
+package walls;
+
+message Point3Msg {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+}
+
+message OpPrefixMsg {
+    string file = 1;
+    string user = 2;
+    string event = 3;
+    uint64 cur_change = 4;
+}
+
+message CreateWallInput {
+    OpPrefixMsg prefix = 1;
+    Point3Msg first_pt = 2;
+    Point3Msg second_pt = 3;
+    double width = 4;
+    double height = 5;
+}
+
+message CreateWallOutput {
+    objects.ObjectMsg wall = 1;
+}
+
+message GetClientRepresentationInput {
+    repeated objects.ObjectMsg objects = 1;
+}
+
+message GetClientRepresentationOutput {
+    repeated representation.UpdateOutputMsg representations = 1;
+}
+
+service Walls {
+    rpc CreateWall(CreateWallInput) returns (CreateWallOutput);
+    rpc GetClientRepresentation(GetClientRepresentationInput) returns (GetClientRepresentationOutput);
+}
+

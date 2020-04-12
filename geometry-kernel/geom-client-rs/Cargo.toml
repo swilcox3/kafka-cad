@@ -1,0 +1,18 @@
+[package]
+name = "geom_client_rs"
+version = "0.1.0"
+authors = ["swilcox"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tonic = "0.1.1"
+prost = "0.6"
+futures-core = "0.3"
+futures-util = "0.3"
+tokio = { version = "0.2", features = ["macros", "sync", "stream", "time"] }
+async-stream = "0.2"
+
+[build-dependencies]
+tonic-build = "0.1.0"

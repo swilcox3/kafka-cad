@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package objects;
+
+message ChangeMsg {
+    string id = 1;
+    enum ChangeType {
+        ADD = 0;
+        MODIFY = 1;
+        DELETE = 2;
+    }
+    ChangeType change_type = 2;
+    bytes object = 3;
+}
+
+message GetObjectsInput {
+    string file = 1;
+    uint64 change_id = 2;
+    repeated string obj_ids = 3;
+}
+
+message OptionChangeMsg {
+    //If an object isn't found, this will not be set
+    ChangeMsg change = 1;
+}
+
+message GetObjectsOutput {
+    //This will always have the same length as GetObjectsInput.obj_ids
+    repeated OptionChangeMsg objects = 1;
+}
+
+service Objects {
+    rpc GetObjects(GetObjectsInput) returns (GetObjectsOutput);
+}

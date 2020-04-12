@@ -1,0 +1,31 @@
+version: '2'
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  redis-objects:
+    image: "redis:alpine"
+    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
+    restart: always
+  objects:
+    build: 
+        context: ./
+        dockerfile: objects/Cargo.toml
+    depends_on: 
+        - kafka
+        - redis-objects
+    environment: 
+        - REDIS_URL=redis://redis-objects:6379
+        - RUST_LOG=model_state=info,operations=info
+    ports:
+        - "6000"

@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package undo;
+
+message BeginUndoEventInput {
+    string file = 1;
+    string user = 2;
+}
+
+message BeginUndoEventOutput {
+    string event = 1;
+}
+
+message UndoLatestInput {
+    string file = 1;
+    string user = 2;
+}
+
+message UndoLatestOutput {
+    uint64 change = 1;
+}
+
+message RedoLatestInput {
+    string file = 1;
+    string user = 2;
+}
+
+message RedoLatestOutput {
+    uint64 change = 1;
+}
+
+message ClearUndoRedoInput {
+    string file = 1;
+    string user = 2;
+}
+
+message ClearUndoRedoOutput {}
+
+service Undo {
+    rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
+    rpc UndoLatest(UndoLatestInput) returns (UndoLatestOutput);
+    rpc RedoLatest(RedoLatestInput) returns (RedoLatestOutput);
+    rpc ClearUndoRedo(ClearUndoRedoInput) returns (ClearUndoRedoOutput);
+}

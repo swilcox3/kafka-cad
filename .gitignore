@@ -1,0 +1,10 @@
+**/build
+**/target
+**/node_modules
+**/dist
+**/bug_sample.zip
+*.exe
+*.txt
+/ui/src/proto
+redis-data
+

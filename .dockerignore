@@ -1,0 +1,6 @@
+**/target
+**/build
+**/node_modules
+*.exe
+ui
+redis-data
