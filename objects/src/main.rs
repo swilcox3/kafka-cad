@@ -88,6 +88,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = redis::Client::open(redis_url).unwrap();
     let (redis_conn, fut) = client.get_multiplexed_async_connection().await.unwrap();
     tokio::spawn(fut);
+    let redis_clone = redis_conn.clone();
+    tokio::spawn(update_cache(
+        redis_clone,
+        "dummy_broker",
+        "dummy group",
+        "dummy file",
+        5,
+    ));
 
     let svc = objects_server::ObjectsServer::new(ObjectService { redis_conn });
 
