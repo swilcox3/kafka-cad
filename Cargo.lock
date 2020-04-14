@@ -132,6 +132,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependencies"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "futures",
+ "log",
+ "prost",
+ "rdkafka",
+ "redis",
+ "thiserror",
+ "tokio",
+ "tokio-macros",
+ "tonic",
+ "tonic-build",
+ "uuid",
+]
+
+[[package]]
 name = "derivative"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -953,6 +971,23 @@ name = "smallvec"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05720e22615919e4734f6a99ceae50d00226c3c5aca406e102ebc33298214e0a"
+
+[[package]]
+name = "submit"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "futures",
+ "log",
+ "prost",
+ "rdkafka",
+ "thiserror",
+ "tokio",
+ "tokio-macros",
+ "tonic",
+ "tonic-build",
+ "uuid",
+]
 
 [[package]]
 name = "syn"
