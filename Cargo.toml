@@ -3,5 +3,5 @@
 members = [
     "geometry-kernel/geom-client-rs",
     "geometry-kernel/test-geom-server",
-    "objects"
+    "objects",
 ]

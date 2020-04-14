@@ -47,26 +47,40 @@ fn obj_cache(file: &str, key: &str) -> String {
     format!("{}:{}", file, key)
 }
 
+fn file_offset(file: &str) -> String {
+    format!("{}:offset", file)
+}
+
 async fn store_object_change(
     conn: &mut MultiplexedConnection,
     file: &str,
-    change: u64,
+    offset: i64,
     key: &str,
     obj: &[u8],
     max_len: u64,
 ) -> Result<(), ObjError> {
     let obj_cache = obj_cache(file, key);
-    let size: u64 = conn.rpush(&obj_cache, (change, obj)).await?;
+    let size: u64 = conn.rpush(&obj_cache, (offset, obj)).await?;
     if size > max_len {
         conn.lpop(&obj_cache).await?;
     }
     Ok(())
 }
 
+async fn store_file_offset(
+    conn: &mut MultiplexedConnection,
+    file: &str,
+    offset: i64,
+) -> Result<(), ObjError> {
+    let file_offset = file_offset(file);
+    conn.set(file_offset, offset).await?;
+    Ok(())
+}
+
 async fn get_object(
     conn: &mut MultiplexedConnection,
     file: &str,
-    change: u64,
+    offset: i64,
     key: &str,
 ) -> Result<Vec<u8>, ObjError> {
     let obj_cache = obj_cache(file, key);
@@ -78,9 +92,9 @@ async fn get_object(
     for i in 0isize..cache_length as isize {
         let cur_index = -1 - i;
         let next_to_cur = cur_index - 1;
-        let (cache_change, obj): (u64, Vec<u8>) =
+        let (cache_offset, obj): (i64, Vec<u8>) =
             conn.lrange(&obj_cache, next_to_cur, cur_index).await?;
-        if cache_change <= change {
+        if cache_offset <= offset {
             return Ok(obj);
         }
     }
@@ -90,13 +104,14 @@ async fn get_object(
 pub async fn update_object_cache(
     conn: &mut MultiplexedConnection,
     file: &str,
-    change: u64,
+    offset: i64,
     input: &[u8],
     max_len: u64,
 ) -> Result<(), ObjError> {
     let object = objects::ChangeMsg::decode(input)?;
     info!("Object received: {:?}", object);
-    store_object_change(conn, file, change, &object.id, input, max_len).await?;
+    store_object_change(conn, file, offset, &object.id, input, max_len).await?;
+    store_file_offset(conn, file, offset).await?;
     Ok(())
 }
 
@@ -107,7 +122,7 @@ pub async fn get_objects(
     let mut results = Vec::new();
     for key in &input.obj_ids {
         let mut current = OptionChangeMsg { change: None };
-        match get_object(conn, &input.file, input.change_id, &key).await {
+        match get_object(conn, &input.file, input.offset, &key).await {
             Ok(bytes) => {
                 current.change = Some(ChangeMsg::decode(bytes.as_ref())?);
             }
@@ -122,4 +137,93 @@ pub async fn get_objects(
         results.push(current);
     }
     Ok(results)
+}
+
+pub async fn get_latest_offset(
+    conn: &mut MultiplexedConnection,
+    input: &GetLatestOffsetInput,
+) -> Result<i64, ObjError> {
+    let file_offset = file_offset(&input.file);
+    let offset: i64 = conn.get(file_offset).await?;
+    Ok(offset)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    pub async fn test_get_conn() -> MultiplexedConnection {
+        let _ = env_logger::Builder::new()
+            .filter_module("objects", log::LevelFilter::Trace)
+            .is_test(true)
+            .try_init();
+        let env_opt = std::env::var("REDIS_URL");
+        let redis_url = if let Ok(url) = env_opt {
+            url
+        } else {
+            String::from("redis://127.0.0.1:6379")
+        };
+        let client = redis::Client::open(redis_url).unwrap();
+        let (conn, fut) = client.get_multiplexed_async_connection().await.unwrap();
+        tokio::spawn(fut);
+        conn
+    }
+
+    #[tokio_macros::test]
+    async fn test_cache() {
+        let mut conn = test_get_conn().await;
+        let id = Uuid::new_v4().to_string();
+        let file = Uuid::new_v4().to_string();
+        let change_1 = ChangeMsg {
+            id: id.clone(),
+            change_type: 0,
+            object: String::from("first change").into_bytes(),
+        };
+        let mut change_1_bytes = Vec::new();
+        change_1.encode(&mut change_1_bytes).unwrap();
+        let offset_1 = 4;
+        let max_len = 2;
+        update_object_cache(&mut conn, &file, offset_1, &change_1_bytes, max_len)
+            .await
+            .unwrap();
+        assert_eq!(
+            get_object(&mut conn, &file, offset_1, &id).await.unwrap(),
+            change_1_bytes
+        );
+
+        let change_2 = ChangeMsg {
+            id: id.clone(),
+            change_type: 1,
+            object: String::from("second change").into_bytes(),
+        };
+        let mut change_2_bytes = Vec::new();
+        change_2.encode(&mut change_2_bytes).unwrap();
+        let offset_2 = 5;
+        update_object_cache(&mut conn, &file, offset_2, &change_2_bytes, max_len)
+            .await
+            .unwrap();
+        assert_eq!(
+            get_object(&mut conn, &file, offset_2, &id).await.unwrap(),
+            change_2_bytes
+        );
+
+        let change_3 = ChangeMsg {
+            id: id.clone(),
+            change_type: 2,
+            object: String::from("third change").into_bytes(),
+        };
+        let mut change_3_bytes = Vec::new();
+        change_3.encode(&mut change_3_bytes).unwrap();
+        let offset_3 = 6;
+        update_object_cache(&mut conn, &file, offset_3, &change_3_bytes, max_len)
+            .await
+            .unwrap();
+        assert_eq!(
+            get_object(&mut conn, &file, offset_3, &id).await.unwrap(),
+            change_3_bytes
+        );
+
+        assert!(get_object(&mut conn, &file, offset_1, &id).await.is_err());
+    }
 }

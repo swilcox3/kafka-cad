@@ -15,7 +15,7 @@ message ChangeMsg {
 
 message GetObjectsInput {
     string file = 1;
-    uint64 change_id = 2;
+    int64 offset = 2;
     repeated string obj_ids = 3;
 }
 
@@ -29,6 +29,16 @@ message GetObjectsOutput {
     repeated OptionChangeMsg objects = 1;
 }
 
+message GetLatestOffsetInput {
+    string file = 1;
+}
+
+message GetLatestOffsetOutput {
+    int64 offset = 1;
+}
+
+
 service Objects {
     rpc GetObjects(GetObjectsInput) returns (GetObjectsOutput);
+    rpc GetLatestOffset(GetLatestOffsetInput) returns (GetLatestOffsetOutput);
 }
