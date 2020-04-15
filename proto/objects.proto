@@ -1,17 +1,7 @@
 syntax = "proto3";
+import "object_state.proto";
 
 package objects;
-
-message ChangeMsg {
-    string id = 1;
-    enum ChangeType {
-        ADD = 0;
-        MODIFY = 1;
-        DELETE = 2;
-    }
-    ChangeType change_type = 2;
-    bytes object = 3;
-}
 
 message GetObjectsInput {
     string file = 1;
@@ -21,7 +11,7 @@ message GetObjectsInput {
 
 message OptionChangeMsg {
     //If an object isn't found, this will not be set
-    ChangeMsg change = 1;
+    object_state.ChangeMsg change = 1;
 }
 
 message GetObjectsOutput {
