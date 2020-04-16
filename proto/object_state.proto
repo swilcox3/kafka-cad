@@ -80,8 +80,12 @@ message ReferenceMsg {
     RefIDMsg other = 2;
 }
 
+message OptionReferenceMsg {
+    ReferenceMsg reference = 1;
+}
+
 message DependenciesMsg {
-    repeated ReferenceMsg references = 1;
+    repeated OptionReferenceMsg references = 1;
 }
 
 message ObjectMsg {
@@ -90,6 +94,7 @@ message ObjectMsg {
     bytes obj_data = 3;
 }
 
+//This is the fundamental message sent to the ObjectState topic.
 message ChangeMsg {
     string id = 1;
     enum ChangeType {

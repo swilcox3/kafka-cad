@@ -7,10 +7,15 @@ use redis::aio::MultiplexedConnection;
 use redis::AsyncCommands;
 use thiserror::Error;
 
+mod object_state {
+    tonic::include_proto!("object_state");
+}
+
 pub mod objects {
     tonic::include_proto!("objects");
 }
 
+pub use object_state::*;
 pub use objects::*;
 
 #[derive(Debug, Error)]
@@ -108,7 +113,7 @@ pub async fn update_object_cache(
     input: &[u8],
     max_len: u64,
 ) -> Result<(), ObjError> {
-    let object = objects::ChangeMsg::decode(input)?;
+    let object = object_state::ChangeMsg::decode(input)?;
     info!("Object received: {:?}", object);
     store_object_change(conn, file, offset, &object.id, input, max_len).await?;
     store_file_offset(conn, file, offset).await?;

@@ -9,7 +9,8 @@ message SubmitChangesInput {
 }
 
 message SubmitChangesOutput {
-    uint64 change_id = 1;
+    //The Kafka offset corresponding to each of the input changes.
+    repeated uint64 offsets = 1;
 }
 
 service SubmitChanges {
