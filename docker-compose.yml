@@ -25,7 +25,31 @@ services:
         - kafka
         - redis-objects
     environment: 
+        - RUN_URL=0.0.0.0:6001
         - REDIS_URL=redis://redis-objects:6379
-        - RUST_LOG=model_state=info,operations=info
+        - BROKER=placeholder
+        - GROUP=placeholder
+        - CACHE_LENGTH=20
+        - RUST_LOG=info
     ports:
-        - "6000"
+        - "6001"
+  redis-deps:
+    image: "redis:alpine"
+    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
+    restart: always
+  dependencies:
+    build: 
+        context: ./
+        dockerfile: dependencies/Cargo.toml
+    depends_on: 
+        - kafka
+        - redis-deps
+    environment: 
+        - RUN_URL=0.0.0.0:6002
+        - REDIS_URL=redis://redis-deps:6379
+        - BROKER=placeholder
+        - GROUP=placeholder
+        - CACHE_LENGTH=20
+        - RUST_LOG=info
+    ports:
+        - "6002"

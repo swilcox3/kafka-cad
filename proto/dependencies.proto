@@ -4,7 +4,9 @@ import "object_state.proto";
 package dependencies;
 
 message GetAllDependenciesInput {
-    repeated object_state.RefIDMsg ids = 1;
+    string file = 1;
+    int64 offset = 2;
+    repeated object_state.RefIDMsg ids = 3;
 }
 
 message GetAllDependenciesOutput {

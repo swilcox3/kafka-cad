@@ -22,8 +22,24 @@ pub enum DepError {
     DatabaseError(#[from] redis::RedisError),
     #[error("Bincode error: {0}")]
     BincodeError(#[from] bincode::Error),
-    #[error("Refs not found for obj {0} in file {1}")]
-    RefsNotFound(String, String),
+}
+
+impl Into<tonic::Status> for DepError {
+    fn into(self) -> tonic::Status {
+        let msg = format!("{}", self);
+        let code = match self {
+            DepError::DatabaseError(..)
+            | DepError::BincodeError(..)
+            | DepError::ProstEncodeError(..)
+            | DepError::ProstDecodeError(..) => tonic::Code::Internal,
+        };
+        tonic::Status::new(code, msg)
+    }
+}
+
+pub fn to_status<T: Into<DepError>>(err: T) -> tonic::Status {
+    let obj_error: DepError = err.into();
+    obj_error.into()
 }
 
 fn ref_id_subscribers(file: &str, ref_id: &[u8]) -> String {
@@ -80,7 +96,7 @@ async fn store_obj_refs(
     conn: &mut MultiplexedConnection,
     file: &str,
     obj_id: &str,
-    refs: DependenciesMsg,
+    refs: &DependenciesMsg,
     offset: i64,
 ) -> Result<(), DepError> {
     let obj_refs = obj_refs(file, obj_id);
@@ -177,55 +193,150 @@ async fn populate_changed_subs(
     Ok(())
 }
 
-pub async fn update_deps(
+async fn add_deps(
     conn: &mut MultiplexedConnection,
     file: &str,
-    change: ChangeMsg,
+    obj_id: &str,
+    deps: &DependenciesMsg,
     offset: i64,
+    max_len: u64,
+) -> Result<(), DepError> {
+    let mut changed_subs = HashMap::new();
+    for refer_opt in &deps.references {
+        if let Some(refer) = &refer_opt.reference {
+            populate_changed_subs(conn, file, offset, refer, DepChange::Add, &mut changed_subs)
+                .await?;
+        }
+    }
+    store_obj_refs(conn, file, obj_id, deps, offset).await?;
+    for (ref_id, subs) in changed_subs {
+        update_ref_id_subscribers(conn, file, &ref_id, offset, &subs, max_len).await?;
+    }
+    Ok(())
+}
+
+async fn modify_deps(
+    conn: &mut MultiplexedConnection,
+    file: &str,
+    obj_id: &str,
+    deps: &DependenciesMsg,
+    offset: i64,
+    max_len: u64,
+) -> Result<(), DepError> {
+    let mut changed_subs = HashMap::new();
+    match get_obj_refs(conn, file, obj_id).await? {
+        Some((_, old_deps)) => {
+            let diffs = get_ref_diffs(&deps.references, &old_deps.references);
+            for change_opt in diffs {
+                if let Some((refer, change_type)) = change_opt {
+                    populate_changed_subs(
+                        conn,
+                        file,
+                        offset,
+                        &refer,
+                        change_type,
+                        &mut changed_subs,
+                    )
+                    .await?;
+                }
+            }
+        }
+        None => {
+            for refer_opt in &deps.references {
+                if let Some(refer) = &refer_opt.reference {
+                    populate_changed_subs(
+                        conn,
+                        file,
+                        offset,
+                        refer,
+                        DepChange::Add,
+                        &mut changed_subs,
+                    )
+                    .await?;
+                }
+            }
+        }
+    }
+    store_obj_refs(conn, file, &obj_id, &deps, offset).await?;
+    for (ref_id, subs) in changed_subs {
+        update_ref_id_subscribers(conn, file, &ref_id, offset, &subs, max_len).await?;
+    }
+    Ok(())
+}
+
+async fn delete_deps(
+    conn: &mut MultiplexedConnection,
+    file: &str,
+    obj_id: &str,
+    deps: &DependenciesMsg,
+    offset: i64,
+    max_len: u64,
+) -> Result<(), DepError> {
+    let mut changed_subs = HashMap::new();
+    for refer_opt in &deps.references {
+        if let Some(refer) = &refer_opt.reference {
+            populate_changed_subs(
+                conn,
+                file,
+                offset,
+                refer,
+                DepChange::Delete,
+                &mut changed_subs,
+            )
+            .await?;
+        }
+    }
+    let mut delete_deps = DependenciesMsg {
+        references: Vec::with_capacity(deps.references.len()),
+    };
+    delete_deps
+        .references
+        .resize_with(deps.references.len(), || OptionReferenceMsg {
+            reference: None,
+        });
+    store_obj_refs(conn, file, obj_id, &delete_deps, offset).await?;
+    for (ref_id, subs) in changed_subs {
+        update_ref_id_subscribers(conn, file, &ref_id, offset, &subs, max_len).await?;
+    }
+
+    Ok(())
+}
+
+async fn update_deps_inner(
+    conn: &mut MultiplexedConnection,
+    file: &str,
+    offset: i64,
+    change: ChangeMsg,
     max_len: u64,
 ) -> Result<(), DepError> {
     if let Some(object) = change.object {
         if let Some(deps) = object.dependencies {
-            let mut changed_subs = HashMap::new();
-            match get_obj_refs(conn, file, &change.id).await? {
-                Some((_, old_deps)) => {
-                    let diffs = get_ref_diffs(&deps.references, &old_deps.references);
-                    for change_opt in diffs {
-                        if let Some((refer, change_type)) = change_opt {
-                            populate_changed_subs(
-                                conn,
-                                file,
-                                offset,
-                                &refer,
-                                change_type,
-                                &mut changed_subs,
-                            )
-                            .await?;
-                        }
-                    }
+            match change.change_type {
+                0 => {
+                    add_deps(conn, file, &change.id, &deps, offset, max_len).await?;
                 }
-                None => {
-                    for refer_opt in &deps.references {
-                        if let Some(refer) = &refer_opt.reference {
-                            populate_changed_subs(
-                                conn,
-                                file,
-                                offset,
-                                refer,
-                                DepChange::Add,
-                                &mut changed_subs,
-                            )
-                            .await?;
-                        }
-                    }
+                1 => {
+                    modify_deps(conn, file, &change.id, &deps, offset, max_len).await?;
                 }
-            }
-            store_obj_refs(conn, file, &change.id, deps, offset).await?;
-            for (ref_id, subs) in changed_subs {
-                update_ref_id_subscribers(conn, file, &ref_id, offset, &subs, max_len).await?;
+                2 => {
+                    delete_deps(conn, file, &change.id, &deps, offset, max_len).await?;
+                }
+                _ => (),
             }
         }
     }
+    Ok(())
+}
+
+pub async fn update_deps(
+    conn: &mut MultiplexedConnection,
+    file: &str,
+    offset: i64,
+    change: &[u8],
+    max_len: u64,
+) -> Result<(), DepError> {
+    let change_msg = ChangeMsg::decode(change)?;
+    update_deps_inner(conn, file, offset, change_msg, max_len).await?;
     Ok(())
 }
 
@@ -266,8 +377,8 @@ async fn breadth_first_search(
 pub async fn get_all_deps(
     conn: &mut MultiplexedConnection,
     file: &str,
-    offset:i64,
-    ref_ids: Vec<RefIdMsg>
+    offset: i64,
+    ref_ids: &Vec<RefIdMsg>,
 ) -> Result<Vec<ReferenceMsg>, DepError> {
     let mut result_set = IndexSet::new();
     for ref_id in ref_ids {

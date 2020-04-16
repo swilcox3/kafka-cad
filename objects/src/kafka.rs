@@ -79,11 +79,11 @@ async fn handle_stream(
 
 pub async fn update_cache(
     mut redis_conn: redis::aio::MultiplexedConnection,
-    brokers: &str,
-    group_id: &str,
+    brokers: String,
+    group_id: String,
     max_cache_len: u64,
 ) {
-    if let Err(e) = handle_stream(&mut redis_conn, brokers, group_id, max_cache_len).await {
+    if let Err(e) = handle_stream(&mut redis_conn, &brokers, &group_id, max_cache_len).await {
         error!("{}", e);
     }
 }
