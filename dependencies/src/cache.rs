@@ -309,19 +309,22 @@ async fn update_deps_inner(
     change: ChangeMsg,
     max_len: u64,
 ) -> Result<(), DepError> {
-    if let Some(object) = change.object {
-        if let Some(deps) = object.dependencies {
-            match change.change_type {
-                0 => {
+    if let Some(change_type) = change.change_type {
+        match change_type {
+            change_msg::ChangeType::Add(object) => {
+                if let Some(deps) = object.dependencies {
                     add_deps(conn, file, &change.id, &deps, offset, max_len).await?;
                 }
-                1 => {
+            }
+            change_msg::ChangeType::Modify(object) => {
+                if let Some(deps) = object.dependencies {
                     modify_deps(conn, file, &change.id, &deps, offset, max_len).await?;
                 }
-                2 => {
+            }
+            change_msg::ChangeType::Delete(object) => {
+                if let Some(deps) = object.dependencies {
                     delete_deps(conn, file, &change.id, &deps, offset, max_len).await?;
                 }
-                _ => (),
             }
         }
     }

@@ -97,11 +97,9 @@ message ObjectMsg {
 //This is the fundamental message sent to the ObjectState topic.
 message ChangeMsg {
     string id = 1;
-    enum ChangeType {
-        ADD = 0;
-        MODIFY = 1;
-        DELETE = 2;
+    oneof change_type {
+        ObjectMsg add = 2;
+        ObjectMsg modify = 3;
+        ObjectMsg delete = 4;
     }
-    ChangeType change_type = 2;
-    ObjectMsg object = 3;
 }

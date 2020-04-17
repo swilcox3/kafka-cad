@@ -5,6 +5,8 @@ use tonic::{Request, Response, Status};
 
 mod cache;
 mod kafka;
+#[cfg(test)]
+mod tests;
 use cache::*;
 use kafka::*;
 
