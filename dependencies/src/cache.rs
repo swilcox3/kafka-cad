@@ -3,11 +3,41 @@ use log::*;
 use prost::Message;
 use redis::aio::MultiplexedConnection;
 use redis::AsyncCommands;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use thiserror::Error;
 
 pub mod object_state {
     tonic::include_proto!("object_state");
+
+    impl From<super::RefID> for RefIdMsg {
+        fn from(id: super::RefID) -> RefIdMsg {
+            RefIdMsg {
+                id: id.id,
+                ref_type: id.ref_type,
+                index: id.index,
+            }
+        }
+    }
+
+    impl From<&super::RefID> for RefIdMsg {
+        fn from(id: &super::RefID) -> RefIdMsg {
+            RefIdMsg {
+                id: id.id.clone(),
+                ref_type: id.ref_type,
+                index: id.index,
+            }
+        }
+    }
+
+    impl From<super::Reference> for ReferenceMsg {
+        fn from(refer: super::Reference) -> ReferenceMsg {
+            ReferenceMsg {
+                owner: Some(RefIdMsg::from(refer.owner)),
+                other: Some(RefIdMsg::from(refer.other)),
+            }
+        }
+    }
 }
 
 pub use object_state::*;
@@ -42,7 +72,41 @@ pub fn to_status<T: Into<DepError>>(err: T) -> tonic::Status {
     obj_error.into()
 }
 
-fn ref_id_subscribers(file: &str, ref_id: &[u8]) -> String {
+///Anti-corruption layer.  Also, RefIdMsg doesn't implement Hash by default.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq)]
+struct RefID {
+    id: String,
+    ref_type: i32,
+    index: u64,
+}
+
+impl From<RefIdMsg> for RefID {
+    fn from(msg: RefIdMsg) -> RefID {
+        RefID {
+            id: msg.id,
+            ref_type: msg.ref_type,
+            index: msg.index,
+        }
+    }
+}
+
+impl From<&RefIdMsg> for RefID {
+    fn from(msg: &RefIdMsg) -> RefID {
+        RefID {
+            id: msg.id.clone(),
+            ref_type: msg.ref_type,
+            index: msg.index,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq)]
+struct Reference {
+    owner: RefID,
+    other: RefID,
+}
+
+fn ref_id_subscribers(file: &str, ref_id: &RefID) -> String {
     format!("{}:{:?}:subs", file, ref_id)
 }
 
@@ -50,46 +114,54 @@ fn obj_refs(file: &str, obj: &str) -> String {
     format!("{}:{}:deps", file, obj)
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct Subscribers {
+    offset: i64,
+    subs: HashSet<RefID>,
+}
+
 async fn update_ref_id_subscribers(
     conn: &mut MultiplexedConnection,
     file: &str,
-    ref_id: &[u8],
+    ref_id: &RefID,
     offset: i64,
-    subs: &HashSet<Vec<u8>>,
-    max_len: u64,
+    subs: HashSet<RefID>,
 ) -> Result<(), DepError> {
+    debug!(
+        "Updating subs {:?} for ref ID {:?} in file {}",
+        subs, ref_id, file
+    );
     let ref_id_subscribers = ref_id_subscribers(file, ref_id);
-    let serialized_subs = bincode::serialize(subs)?;
-    let size: u64 = conn
-        .rpush(&ref_id_subscribers, (offset, serialized_subs))
-        .await?;
-    if size > max_len {
-        conn.lpop(&ref_id_subscribers).await?;
-    }
+    let entry = Subscribers { offset, subs };
+    let serialized_subs = bincode::serialize(&entry)?;
+    //Push to the left so the latest is first in the list
+    conn.lpush(&ref_id_subscribers, serialized_subs).await?;
     Ok(())
 }
 
 async fn get_ref_id_subs(
     conn: &mut MultiplexedConnection,
     file: &str,
-    ref_id: &[u8],
+    ref_id: &RefID,
     before_or_equal: i64,
-) -> Result<HashSet<Vec<u8>>, DepError> {
+) -> Result<HashSet<RefID>, DepError> {
+    debug!("Getting subs for ref ID {:?} in file {}", ref_id, file);
     let ref_id_subscribers = ref_id_subscribers(file, ref_id);
     let cache_length: u64 = conn.llen(&ref_id_subscribers).await?;
-    let mut results = HashSet::new();
     for i in 0isize..cache_length as isize {
-        let cur_index = -1 - i;
-        let next_to_cur = cur_index - 1;
-        let (cache_offset, subs): (i64, Vec<u8>) = conn
-            .lrange(&ref_id_subscribers, next_to_cur, cur_index)
-            .await?;
-        if cache_offset <= before_or_equal {
-            results = bincode::deserialize(&subs)?;
-            break;
+        let raw_bytes: Vec<u8> = conn.lindex(&ref_id_subscribers, i).await?;
+        let entry: Subscribers = bincode::deserialize(&raw_bytes)?;
+        if entry.offset <= before_or_equal {
+            return Ok(entry.subs);
         }
     }
-    Ok(results)
+    Ok(HashSet::new())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ObjRefs {
+    offset: i64,
+    serialized_refs: Vec<u8>,
 }
 
 async fn store_obj_refs(
@@ -99,10 +171,15 @@ async fn store_obj_refs(
     refs: &DependenciesMsg,
     offset: i64,
 ) -> Result<(), DepError> {
+    debug!("Storing refs for object {} from file {}", obj_id, file);
     let obj_refs = obj_refs(file, obj_id);
-    let mut serialized = Vec::new();
-    refs.encode(&mut serialized)?;
-    conn.set(&obj_refs, (offset, serialized)).await?;
+    let mut serialized_refs = Vec::new();
+    refs.encode(&mut serialized_refs)?;
+    let refs = ObjRefs {
+        offset,
+        serialized_refs,
+    };
+    conn.set(&obj_refs, bincode::serialize(&refs)?).await?;
     Ok(())
 }
 
@@ -111,12 +188,14 @@ async fn get_obj_refs(
     file: &str,
     obj_id: &str,
 ) -> Result<Option<(i64, DependenciesMsg)>, DepError> {
+    debug!("Getting refs for object {} from file {}", obj_id, file);
     let obj_refs = obj_refs(file, obj_id);
-    let refs: Option<(i64, Vec<u8>)> = conn.get(&obj_refs).await?;
+    let refs: Option<Vec<u8>> = conn.get(&obj_refs).await?;
     match refs {
-        Some((offset, ref_bytes)) => {
-            let deserialized = DependenciesMsg::decode(ref_bytes.as_ref())?;
-            Ok(Some((offset, deserialized)))
+        Some(raw_bytes) => {
+            let obj_refs: ObjRefs = bincode::deserialize(&raw_bytes)?;
+            let deserialized = DependenciesMsg::decode(obj_refs.serialized_refs.as_ref())?;
+            Ok(Some((obj_refs.offset, deserialized)))
         }
         None => Ok(None),
     }
@@ -166,25 +245,31 @@ async fn populate_changed_subs(
     offset: i64,
     refer: &ReferenceMsg,
     change_type: DepChange,
-    changed_subs: &mut HashMap<Vec<u8>, HashSet<Vec<u8>>>,
+    changed_subs: &mut HashMap<RefID, HashSet<RefID>>,
 ) -> Result<(), DepError> {
     if let Some(ref_owner) = &refer.owner {
         if let Some(ref_other) = &refer.other {
-            let mut owner_serialized = Vec::new();
-            ref_owner.encode(&mut owner_serialized)?;
-            let mut other_serialized = Vec::new();
-            ref_other.encode(&mut other_serialized)?;
-            if !changed_subs.contains_key(&other_serialized) {
-                let subs = get_ref_id_subs(conn, file, &other_serialized, offset).await?;
-                changed_subs.insert(other_serialized.clone(), subs);
+            let ref_owner = RefID::from(ref_owner);
+            let ref_other = RefID::from(ref_other);
+            if !changed_subs.contains_key(&ref_other) {
+                match get_ref_id_subs(conn, file, &ref_other, offset).await {
+                    Ok(subs) => {
+                        debug!(
+                            "Got subs {:#?} for ref_id {:?} from file {}",
+                            subs, ref_other, file
+                        );
+                        changed_subs.insert(ref_other.clone(), subs);
+                    }
+                    Err(e) => return Err(e),
+                }
             }
-            if let Some(subs) = changed_subs.get_mut(&other_serialized) {
+            if let Some(subs) = changed_subs.get_mut(&ref_other) {
                 match change_type {
                     DepChange::Add | DepChange::Modify => {
-                        subs.insert(owner_serialized);
+                        subs.insert(ref_owner);
                     }
                     DepChange::Delete => {
-                        subs.remove(&other_serialized);
+                        subs.remove(&ref_owner);
                     }
                 }
             }
@@ -199,8 +284,11 @@ async fn add_deps(
     obj_id: &str,
     deps: &DependenciesMsg,
     offset: i64,
-    max_len: u64,
 ) -> Result<(), DepError> {
+    debug!(
+        "Adding dependencies {:#?} for object {} from file {}",
+        deps, obj_id, file
+    );
     let mut changed_subs = HashMap::new();
     for refer_opt in &deps.references {
         if let Some(refer) = &refer_opt.reference {
@@ -210,7 +298,7 @@ async fn add_deps(
     }
     store_obj_refs(conn, file, obj_id, deps, offset).await?;
     for (ref_id, subs) in changed_subs {
-        update_ref_id_subscribers(conn, file, &ref_id, offset, &subs, max_len).await?;
+        update_ref_id_subscribers(conn, file, &ref_id, offset, subs).await?;
     }
     Ok(())
 }
@@ -221,8 +309,11 @@ async fn modify_deps(
     obj_id: &str,
     deps: &DependenciesMsg,
     offset: i64,
-    max_len: u64,
 ) -> Result<(), DepError> {
+    debug!(
+        "Modifying dependencies {:?} for object {} from file {}",
+        deps, obj_id, file
+    );
     let mut changed_subs = HashMap::new();
     match get_obj_refs(conn, file, obj_id).await? {
         Some((_, old_deps)) => {
@@ -259,7 +350,7 @@ async fn modify_deps(
     }
     store_obj_refs(conn, file, &obj_id, &deps, offset).await?;
     for (ref_id, subs) in changed_subs {
-        update_ref_id_subscribers(conn, file, &ref_id, offset, &subs, max_len).await?;
+        update_ref_id_subscribers(conn, file, &ref_id, offset, subs).await?;
     }
     Ok(())
 }
@@ -270,8 +361,11 @@ async fn delete_deps(
     obj_id: &str,
     deps: &DependenciesMsg,
     offset: i64,
-    max_len: u64,
 ) -> Result<(), DepError> {
+    debug!(
+        "Deleting dependencies {:?} for object {} from file {}",
+        deps, obj_id, file
+    );
     let mut changed_subs = HashMap::new();
     for refer_opt in &deps.references {
         if let Some(refer) = &refer_opt.reference {
@@ -296,7 +390,7 @@ async fn delete_deps(
         });
     store_obj_refs(conn, file, obj_id, &delete_deps, offset).await?;
     for (ref_id, subs) in changed_subs {
-        update_ref_id_subscribers(conn, file, &ref_id, offset, &subs, max_len).await?;
+        update_ref_id_subscribers(conn, file, &ref_id, offset, subs).await?;
     }
 
     Ok(())
@@ -307,23 +401,22 @@ async fn update_deps_inner(
     file: &str,
     offset: i64,
     change: ChangeMsg,
-    max_len: u64,
 ) -> Result<(), DepError> {
     if let Some(change_type) = change.change_type {
         match change_type {
             change_msg::ChangeType::Add(object) => {
                 if let Some(deps) = object.dependencies {
-                    add_deps(conn, file, &change.id, &deps, offset, max_len).await?;
+                    add_deps(conn, file, &change.id, &deps, offset).await?;
                 }
             }
             change_msg::ChangeType::Modify(object) => {
                 if let Some(deps) = object.dependencies {
-                    modify_deps(conn, file, &change.id, &deps, offset, max_len).await?;
+                    modify_deps(conn, file, &change.id, &deps, offset).await?;
                 }
             }
             change_msg::ChangeType::Delete(object) => {
                 if let Some(deps) = object.dependencies {
-                    delete_deps(conn, file, &change.id, &deps, offset, max_len).await?;
+                    delete_deps(conn, file, &change.id, &deps, offset).await?;
                 }
             }
         }
@@ -336,10 +429,9 @@ pub async fn update_deps(
     file: &str,
     offset: i64,
     change: &[u8],
-    max_len: u64,
 ) -> Result<(), DepError> {
     let change_msg = ChangeMsg::decode(change)?;
-    update_deps_inner(conn, file, offset, change_msg, max_len).await?;
+    update_deps_inner(conn, file, offset, change_msg).await?;
     Ok(())
 }
 
@@ -347,8 +439,8 @@ async fn breadth_first_search(
     conn: &mut MultiplexedConnection,
     file: &str,
     offset: i64,
-    ref_id: Vec<u8>,
-) -> Result<IndexSet<Vec<u8>>, DepError> {
+    ref_id: RefID,
+) -> Result<IndexSet<Reference>, DepError> {
     let mut processing = VecDeque::new();
     let mut visited = HashSet::new();
     let mut result = IndexSet::new();
@@ -356,19 +448,15 @@ async fn breadth_first_search(
     processing.push_back(ref_id);
     while processing.len() > 0 {
         if let Some(current) = processing.pop_front() {
-            let current_deserialized = RefIdMsg::decode(current.as_ref())?;
             let sub_set = get_ref_id_subs(conn, file, &current, offset).await?;
             for sub in sub_set {
                 if let None = visited.get(&sub) {
                     visited.insert(sub.clone());
-                    let sub_deserialized = RefIdMsg::decode(sub.as_ref())?;
-                    let ref_msg = ReferenceMsg {
-                        owner: Some(sub_deserialized),
-                        other: Some(current_deserialized.clone()),
+                    let refer = Reference {
+                        owner: sub.clone(),
+                        other: current.clone(),
                     };
-                    let mut ref_msg_serialized = Vec::new();
-                    ref_msg.encode(&mut ref_msg_serialized)?;
-                    result.insert(ref_msg_serialized);
+                    result.insert(refer);
                     processing.push_back(sub);
                 }
             }
@@ -385,14 +473,12 @@ pub async fn get_all_deps(
 ) -> Result<Vec<ReferenceMsg>, DepError> {
     let mut result_set = IndexSet::new();
     for ref_id in ref_ids {
-        let mut ref_id_serialized = Vec::new();
-        ref_id.encode(&mut ref_id_serialized)?;
-        let set = breadth_first_search(conn, file, offset, ref_id_serialized).await?;
+        let set = breadth_first_search(conn, file, offset, RefID::from(ref_id)).await?;
         result_set.extend(set);
     }
     let mut results = Vec::new();
-    for serialized_refer in result_set {
-        let refer_msg = ReferenceMsg::decode(serialized_refer.as_ref())?;
+    for refer in result_set {
+        let refer_msg = ReferenceMsg::from(refer);
         results.push(refer_msg);
     }
     Ok(results)

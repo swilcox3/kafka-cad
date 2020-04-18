@@ -153,6 +153,7 @@ dependencies = [
  "prost",
  "rdkafka",
  "redis",
+ "serde",
  "thiserror",
  "tokio",
  "tokio-macros",

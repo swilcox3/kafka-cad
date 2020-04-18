@@ -18,6 +18,7 @@ env_logger = "0.7.1"
 tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
 thiserror = "1.0.9"
 indexmap = "1.2.0"
+serde = {version = "1.0.104", features = ["derive"]}
 bincode = "1.2.1"
 
 [dev-dependencies]
