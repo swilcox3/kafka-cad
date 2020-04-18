@@ -70,6 +70,7 @@ fn opt_ref_msg(owner: &RefIdMsg, other: &RefIdMsg) -> OptionReferenceMsg {
 fn add_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
     let msg = ChangeMsg {
         id,
+        user: "Doesn't matter".to_string(),
         change_type: Some(ChangeType::Add(ObjectMsg {
             dependencies: Some(DependenciesMsg { references }),
             results: None,
@@ -84,6 +85,7 @@ fn add_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
 fn modify_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
     let msg = ChangeMsg {
         id,
+        user: "Doesn't matter".to_string(),
         change_type: Some(ChangeType::Modify(ObjectMsg {
             dependencies: Some(DependenciesMsg { references }),
             results: None,
@@ -98,6 +100,7 @@ fn modify_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8>
 fn delete_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
     let msg = ChangeMsg {
         id,
+        user: "Doesn't matter".to_string(),
         change_type: Some(ChangeType::Delete(ObjectMsg {
             dependencies: Some(DependenciesMsg { references }),
             results: None,

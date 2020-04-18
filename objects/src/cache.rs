@@ -62,13 +62,9 @@ async fn store_object_change(
     offset: i64,
     key: &str,
     obj: &[u8],
-    max_len: u64,
 ) -> Result<(), ObjError> {
     let obj_cache = obj_cache(file, key);
-    let size: u64 = conn.rpush(&obj_cache, (offset, obj)).await?;
-    if size > max_len {
-        conn.lpop(&obj_cache).await?;
-    }
+    conn.rpush(&obj_cache, (offset, obj)).await?;
     Ok(())
 }
 
@@ -111,11 +107,10 @@ pub async fn update_object_cache(
     file: &str,
     offset: i64,
     input: &[u8],
-    max_len: u64,
 ) -> Result<(), ObjError> {
     let object = object_state::ChangeMsg::decode(input)?;
     info!("Object received: {:?}", object);
-    store_object_change(conn, file, offset, &object.id, input, max_len).await?;
+    store_object_change(conn, file, offset, &object.id, input).await?;
     store_file_offset(conn, file, offset).await?;
     Ok(())
 }
@@ -180,16 +175,20 @@ mod tests {
         let mut conn = test_get_conn().await;
         let id = Uuid::new_v4().to_string();
         let file = Uuid::new_v4().to_string();
+        let user = Uuid::new_v4().to_string();
         let change_1 = ChangeMsg {
             id: id.clone(),
-            change_type: 0,
-            object: String::from("first change").into_bytes(),
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                dependencies: None,
+                results: None,
+                obj_data: vec![],
+            })),
         };
         let mut change_1_bytes = Vec::new();
         change_1.encode(&mut change_1_bytes).unwrap();
         let offset_1 = 4;
-        let max_len = 2;
-        update_object_cache(&mut conn, &file, offset_1, &change_1_bytes, max_len)
+        update_object_cache(&mut conn, &file, offset_1, &change_1_bytes)
             .await
             .unwrap();
         assert_eq!(
@@ -199,13 +198,17 @@ mod tests {
 
         let change_2 = ChangeMsg {
             id: id.clone(),
-            change_type: 1,
-            object: String::from("second change").into_bytes(),
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Modify(ObjectMsg {
+                dependencies: None,
+                results: None,
+                obj_data: String::from("modified").into_bytes(),
+            })),
         };
         let mut change_2_bytes = Vec::new();
         change_2.encode(&mut change_2_bytes).unwrap();
         let offset_2 = 5;
-        update_object_cache(&mut conn, &file, offset_2, &change_2_bytes, max_len)
+        update_object_cache(&mut conn, &file, offset_2, &change_2_bytes)
             .await
             .unwrap();
         assert_eq!(
@@ -215,13 +218,17 @@ mod tests {
 
         let change_3 = ChangeMsg {
             id: id.clone(),
-            change_type: 2,
-            object: String::from("third change").into_bytes(),
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Delete(ObjectMsg {
+                dependencies: None,
+                results: None,
+                obj_data: String::from("third change").into_bytes(),
+            })),
         };
         let mut change_3_bytes = Vec::new();
         change_3.encode(&mut change_3_bytes).unwrap();
         let offset_3 = 6;
-        update_object_cache(&mut conn, &file, offset_3, &change_3_bytes, max_len)
+        update_object_cache(&mut conn, &file, offset_3, &change_3_bytes)
             .await
             .unwrap();
         assert_eq!(

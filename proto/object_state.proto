@@ -97,9 +97,10 @@ message ObjectMsg {
 //This is the fundamental message sent to the ObjectState topic.
 message ChangeMsg {
     string id = 1;
+    string user = 2;
     oneof change_type {
-        ObjectMsg add = 2;
-        ObjectMsg modify = 3;
-        ObjectMsg delete = 4;
+        ObjectMsg add = 3;
+        ObjectMsg modify = 4;
+        ObjectMsg delete = 5;
     }
 }

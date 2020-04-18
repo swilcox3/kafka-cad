@@ -49,7 +49,6 @@ services:
         - REDIS_URL=redis://redis-deps:6379
         - BROKER=placeholder
         - GROUP=placeholder
-        - CACHE_LENGTH=20
         - RUST_LOG=info
     ports:
         - "6002"

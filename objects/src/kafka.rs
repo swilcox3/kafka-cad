@@ -23,7 +23,6 @@ pub enum UpdateError {
 async fn handle_message<M: Message>(
     redis_conn: &mut redis::aio::MultiplexedConnection,
     m: &M,
-    max_cache_len: u64,
 ) -> Result<(), UpdateError> {
     let partition = m.partition();
     let offset = m.offset();
@@ -34,7 +33,7 @@ async fn handle_message<M: Message>(
         .key()
         .ok_or(UpdateError::FileError { partition, offset })?;
     let file = std::str::from_utf8(file_bytes)?;
-    crate::cache::update_object_cache(redis_conn, &file, offset, bytes, max_cache_len).await?;
+    crate::cache::update_object_cache(redis_conn, &file, offset, bytes).await?;
     Ok(())
 }
 
@@ -42,7 +41,6 @@ async fn handle_stream(
     redis_conn: &mut redis::aio::MultiplexedConnection,
     brokers: &str,
     group_id: &str,
-    max_cache_len: u64,
 ) -> Result<(), UpdateError> {
     let consumer: StreamConsumer<rdkafka::consumer::DefaultConsumerContext> = ClientConfig::new()
         .set("group.id", group_id)
@@ -62,7 +60,7 @@ async fn handle_stream(
     while let Some(message) = message_stream.next().await {
         match message {
             Ok(m) => {
-                if let Err(e) = handle_message(redis_conn, &m, max_cache_len).await {
+                if let Err(e) = handle_message(redis_conn, &m).await {
                     error!("{}", e);
                 }
                 if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
@@ -81,9 +79,8 @@ pub async fn update_cache(
     mut redis_conn: redis::aio::MultiplexedConnection,
     brokers: String,
     group_id: String,
-    max_cache_len: u64,
 ) {
-    if let Err(e) = handle_stream(&mut redis_conn, &brokers, &group_id, max_cache_len).await {
+    if let Err(e) = handle_stream(&mut redis_conn, &brokers, &group_id).await {
         error!("{}", e);
     }
 }
