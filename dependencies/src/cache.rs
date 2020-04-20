@@ -32,9 +32,22 @@ pub mod object_state {
 
     impl From<super::Reference> for ReferenceMsg {
         fn from(refer: super::Reference) -> ReferenceMsg {
+            let update_type = match refer.update_type {
+                super::UpdateType::Equals(owner_index, other_index) => reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg {
+                    owner_index,
+                    other_index
+                }),
+                super::UpdateType::Interp(owner_index, first_other, second_other, interp) => reference_msg::UpdateType::Interp(UpdateTypeInterpolationMsg {
+                    owner_index,
+                    first_other,
+                    second_other,
+                    interp
+                }),
+            };
             ReferenceMsg {
                 owner: Some(RefIdMsg::from(refer.owner)),
                 other: Some(RefIdMsg::from(refer.other)),
+                update_type: Some(update_type)
             }
         }
     }
@@ -100,11 +113,50 @@ impl From<&RefIdMsg> for RefID {
     }
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+enum UpdateType {
+    Equals(u64, u64),
+    Interp(u64, u64, u64, f64)
+}
+
+impl From<&reference_msg::UpdateType> for UpdateType {
+    fn from(update_type: &reference_msg::UpdateType) -> UpdateType {
+        match update_type {
+            reference_msg::UpdateType::Equals(msg) => UpdateType::Equals(msg.owner_index, msg.other_index),
+            reference_msg::UpdateType::Interp(msg) => UpdateType::Interp(msg.owner_index, msg.first_other, msg.second_other, msg.interp)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+struct Sub {
+    ref_id: RefID,
+    update_type: UpdateType
+}
+
+impl std::hash::Hash for Sub {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.ref_id.hash(state);
+    }
+}
+
+impl std::cmp::Eq for Sub {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct Reference {
     owner: RefID,
     other: RefID,
+    update_type: UpdateType
 }
+
+impl std::hash::Hash for Reference {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.owner.hash(state);
+        self.other.hash(state);
+    }
+}
+
+impl std::cmp::Eq for Reference {}
 
 fn ref_id_subscribers(file: &str, ref_id: &RefID) -> String {
     format!("{}:{:?}:subs", file, ref_id)
@@ -117,7 +169,7 @@ fn obj_refs(file: &str, obj: &str) -> String {
 #[derive(Debug, Serialize, Deserialize)]
 struct Subscribers {
     offset: i64,
-    subs: HashSet<RefID>,
+    subs: HashSet<Sub>,
 }
 
 async fn update_ref_id_subscribers(
@@ -125,7 +177,7 @@ async fn update_ref_id_subscribers(
     file: &str,
     ref_id: &RefID,
     offset: i64,
-    subs: HashSet<RefID>,
+    subs: HashSet<Sub>,
 ) -> Result<(), DepError> {
     debug!(
         "Updating subs {:?} for ref ID {:?} in file {}",
@@ -144,7 +196,7 @@ async fn get_ref_id_subs(
     file: &str,
     ref_id: &RefID,
     before_or_equal: i64,
-) -> Result<HashSet<RefID>, DepError> {
+) -> Result<HashSet<Sub>, DepError> {
     debug!("Getting subs for ref ID {:?} in file {}", ref_id, file);
     let ref_id_subscribers = ref_id_subscribers(file, ref_id);
     let cache_length: u64 = conn.llen(&ref_id_subscribers).await?;
@@ -245,12 +297,14 @@ async fn populate_changed_subs(
     offset: i64,
     refer: &ReferenceMsg,
     change_type: DepChange,
-    changed_subs: &mut HashMap<RefID, HashSet<RefID>>,
+    changed_subs: &mut HashMap<RefID, HashSet<Sub>>,
 ) -> Result<(), DepError> {
     if let Some(ref_owner) = &refer.owner {
         if let Some(ref_other) = &refer.other {
+            if let Some(update_type) = &refer.update_type {
             let ref_owner = RefID::from(ref_owner);
             let ref_other = RefID::from(ref_other);
+            let update_type = UpdateType::from(update_type);
             if !changed_subs.contains_key(&ref_other) {
                 match get_ref_id_subs(conn, file, &ref_other, offset).await {
                     Ok(subs) => {
@@ -266,13 +320,20 @@ async fn populate_changed_subs(
             if let Some(subs) = changed_subs.get_mut(&ref_other) {
                 match change_type {
                     DepChange::Add | DepChange::Modify => {
-                        subs.insert(ref_owner);
+                        subs.insert(Sub {
+                            ref_id: ref_owner,
+                            update_type
+                        });
                     }
                     DepChange::Delete => {
-                        subs.remove(&ref_owner);
+                        subs.remove(&Sub {
+                            ref_id: ref_owner,
+                            update_type
+                        });
                     }
                 }
             }
+        }
         }
     }
     Ok(())
@@ -450,14 +511,15 @@ async fn breadth_first_search(
         if let Some(current) = processing.pop_front() {
             let sub_set = get_ref_id_subs(conn, file, &current, offset).await?;
             for sub in sub_set {
-                if let None = visited.get(&sub) {
-                    visited.insert(sub.clone());
+                if let None = visited.get(&sub.ref_id) {
+                    visited.insert(sub.ref_id.clone());
                     let refer = Reference {
-                        owner: sub.clone(),
+                        owner: sub.ref_id.clone(),
                         other: current.clone(),
+                        update_type: sub.update_type.clone(),
                     };
                     result.insert(refer);
-                    processing.push_back(sub);
+                    processing.push_back(sub.ref_id);
                 }
             }
         }

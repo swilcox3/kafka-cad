@@ -6,6 +6,7 @@ fn main() {
             &[
                 "../proto/submit.proto",
                 "../proto/object_state.proto",
+                "../proto/objects.proto",
                 "../proto/dependencies.proto",
             ],
             &["../proto"],

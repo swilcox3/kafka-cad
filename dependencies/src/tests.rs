@@ -51,6 +51,7 @@ fn ref_msg(owner: &RefIdMsg, other: &RefIdMsg) -> ReferenceMsg {
     ReferenceMsg {
         owner: Some(owner.clone()),
         other: Some(other.clone()),
+        update_type: Some(reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg{owner_index: 0, other_index: 0}))
     }
 }
 
