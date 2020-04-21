@@ -89,21 +89,89 @@ async fn get_all_objects(
     Ok(results)
 }
 
+fn get_profile_pt_to_update<'a>(
+    owner: &RefIdMsg,
+    results: &'a mut ResultsMsg,
+) -> Option<&'a mut Point3Msg> {
+    let mut result = None;
+    if let Some(profile) = &mut results.profile {
+        if let Some(pt_opt) = profile.points.get_mut(owner.index as usize) {
+            if let Some(pt) = &mut pt_opt.pt {
+                result = Some(pt);
+            }
+        }
+    }
+    result
+}
+
+fn get_pt_from_other<'a>(other: &RefIdMsg, other_results: &ResultsMsg) -> Option<&'a Point3Msg> {
+    let mut result = None;
+    if let Some(other_ref_type) = ref_id_msg::RefType::from_i32(other.ref_type) {
+        match other_ref_type {
+            ref_id_msg::RefType::AxisAlignedBbox => {}
+            ref_id_msg::RefType::ProfilePoint => {}
+            ref_id_msg::RefType::ProfileLine => {}
+            ref_id_msg::RefType::ProfilePlane => {}
+            _ => (),
+        }
+    }
+    result
+}
+
+fn update_profile_pt(
+    owner: &RefIdMsg,
+    owner_results: &mut ResultsMsg,
+    other: &RefIdMsg,
+    other_results: &ResultsMsg,
+    update_type: &reference_msg::UpdateType,
+) {
+    if let Some(pt) = get_profile_pt_to_update(owner, owner_results) {}
+}
+
 fn update(refers: &Vec<ReferenceMsg>, objects: &mut HashMap<String, ObjectMsg>) {
     for refer in refers {
-        if let Some(other) = refer.other {
-            if let Some(owner) = refer.owner {
-                if let Some(update_type) = refer.update_type {
-                    let other_obj_opt = objects.get(&other.id);
-                    if let Some(owner_obj) = objects.get(&owner.id) {
+        if let Some(other) = &refer.other {
+            if let Some(owner) = &refer.owner {
+                if let Some(update_type) = &refer.update_type {
+                    //We're going to take it out so we don't run afoul of borrowing rules
+                    if let Some(mut owner_obj) = objects.remove(&owner.id) {
+                        let other_obj_opt = objects.get(&other.id);
                         match other_obj_opt {
-                            Some(other_obj) => {}
+                            Some(other_obj) => {
+                                if let Some(owner_results) = &mut owner_obj.results {
+                                    if let Some(other_results) = &other_obj.results {
+                                        if let Some(ref_type) =
+                                            ref_id_msg::RefType::from_i32(owner.ref_type)
+                                        {
+                                            match ref_type {
+                                                ref_id_msg::RefType::Existence => {}
+                                                ref_id_msg::RefType::Visibility => {}
+                                                ref_id_msg::RefType::AxisAlignedBbox => {}
+                                                ref_id_msg::RefType::ProfilePoint => {
+                                                    update_profile_pt(
+                                                        owner,
+                                                        owner_results,
+                                                        other,
+                                                        other_results,
+                                                        update_type,
+                                                    )
+                                                }
+
+                                                ref_id_msg::RefType::ProfileLine => {}
+                                                ref_id_msg::RefType::ProfilePlane => {}
+                                                ref_id_msg::RefType::Property => {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             None => {
-                                if let Some(deps) = owner_obj.dependencies {
-                                    for refer_opt in deps.references {
+                                //Set reference to None, the object we were referencing is gone
+                                if let Some(deps) = &mut owner_obj.dependencies {
+                                    for refer_opt in &mut deps.references {
                                         let mut delete = false;
-                                        if let Some(existing_ref) = refer_opt.reference {
-                                            if existing_ref == *refer {
+                                        if let Some(existing_ref) = &mut refer_opt.reference {
+                                            if *existing_ref == *refer {
                                                 delete = true;
                                             }
                                         }
@@ -114,6 +182,8 @@ fn update(refers: &Vec<ReferenceMsg>, objects: &mut HashMap<String, ObjectMsg>) 
                                 }
                             }
                         }
+                        //And put it back in here.
+                        objects.insert(owner.id.clone(), owner_obj);
                     }
                 }
             }
