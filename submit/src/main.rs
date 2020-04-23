@@ -30,6 +30,8 @@ mod produce;
 mod update;
 
 struct SubmitService {
+    broker: String,
+    topic: String,
     obj_client: ObjClient,
     dep_client: DepClient,
 }
@@ -53,7 +55,7 @@ impl submit_changes_server::SubmitChanges for SubmitService {
             msg.changes,
         )
         .await?;
-        let offsets = produce::submit_changes(updated).await?;
+        let offsets = produce::submit_changes(&self.broker, &self.topic, updated).await;
         Ok(Response::new(SubmitChangesOutput { offsets }))
     }
 }
@@ -65,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let obj_url = std::env::var("OBJECTS_URL").unwrap();
     let dep_url = std::env::var("DEPENDENCIES_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
-    let group = std::env::var("GROUP").unwrap();
+    let topic = std::env::var("TOPIC").unwrap();
     let obj_client = objects_client::ObjectsClient::connect(obj_url)
         .await
         .unwrap();
@@ -74,6 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
     let svc = submit_changes_server::SubmitChangesServer::new(SubmitService {
+        broker,
+        topic,
         obj_client,
         dep_client,
     });

@@ -41,6 +41,7 @@ async fn handle_stream(
     redis_conn: &mut redis::aio::MultiplexedConnection,
     brokers: &str,
     group_id: &str,
+    topic: &str,
 ) -> Result<(), UpdateError> {
     let consumer: StreamConsumer<rdkafka::consumer::DefaultConsumerContext> = ClientConfig::new()
         .set("group.id", group_id)
@@ -51,7 +52,7 @@ async fn handle_stream(
         .set_log_level(RDKafkaLogLevel::Debug)
         .create()?;
 
-    consumer.subscribe(&["ObjectState"])?;
+    consumer.subscribe(&[topic])?;
 
     // consumer.start() returns a stream. The stream can be used ot chain together expensive steps,
     // such as complex computations on a thread pool or asynchronous IO.
@@ -79,8 +80,9 @@ pub async fn update_cache(
     mut redis_conn: redis::aio::MultiplexedConnection,
     brokers: String,
     group_id: String,
+    topic: String,
 ) {
-    if let Err(e) = handle_stream(&mut redis_conn, &brokers, &group_id).await {
+    if let Err(e) = handle_stream(&mut redis_conn, &brokers, &group_id, &topic).await {
         error!("{}", e);
     }
 }

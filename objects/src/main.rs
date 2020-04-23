@@ -47,12 +47,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let redis_url = std::env::var("REDIS_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let group = std::env::var("GROUP").unwrap();
+    let topic = std::env::var("TOPIC").unwrap();
     info!("redis_url: {:?}", redis_url);
     let client = redis::Client::open(redis_url).unwrap();
     let (redis_conn, fut) = client.get_multiplexed_async_connection().await.unwrap();
     tokio::spawn(fut);
     let redis_clone = redis_conn.clone();
-    tokio::spawn(update_cache(redis_clone, broker, group));
+    tokio::spawn(update_cache(redis_clone, broker, group, topic));
 
     let svc = objects_server::ObjectsServer::new(ObjectService { redis_conn });
 
