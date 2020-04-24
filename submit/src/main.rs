@@ -68,25 +68,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dep_url = std::env::var("DEPENDENCIES_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
-    let obj_client = objects_client::ObjectsClient::connect(obj_url)
-        .await
-        .unwrap();
-    let dep_client = dependencies_client::DependenciesClient::connect(dep_url)
-        .await
-        .unwrap();
+    let now = std::time::SystemTime::now();
+    while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
+        if let Ok(obj_client) = objects_client::ObjectsClient::connect(obj_url.clone()).await {
+            while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
+                if let Ok(dep_client) =
+                    dependencies_client::DependenciesClient::connect(dep_url.clone()).await
+                {
+                    let svc = submit_changes_server::SubmitChangesServer::new(SubmitService {
+                        broker,
+                        topic,
+                        obj_client,
+                        dep_client,
+                    });
 
-    let svc = submit_changes_server::SubmitChangesServer::new(SubmitService {
-        broker,
-        topic,
-        obj_client,
-        dep_client,
-    });
-
-    info!("Running on {:?}", run_url);
-    Server::builder()
-        .add_service(svc)
-        .serve(run_url)
-        .await
-        .unwrap();
-    Ok(())
+                    info!("Running on {:?}", run_url);
+                    Server::builder()
+                        .add_service(svc)
+                        .serve(run_url)
+                        .await
+                        .unwrap();
+                    return Ok(());
+                }
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    panic!("Couldn't connect to dependencies or objects");
 }

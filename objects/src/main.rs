@@ -50,18 +50,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let topic = std::env::var("TOPIC").unwrap();
     info!("redis_url: {:?}", redis_url);
     let client = redis::Client::open(redis_url).unwrap();
-    let (redis_conn, fut) = client.get_multiplexed_async_connection().await.unwrap();
-    tokio::spawn(fut);
-    let redis_clone = redis_conn.clone();
-    tokio::spawn(update_cache(redis_clone, broker, group, topic));
+    let now = std::time::SystemTime::now();
+    while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
+        if let Ok((redis_conn, fut)) = client.get_multiplexed_async_connection().await {
+            tokio::spawn(fut);
+            let redis_clone = redis_conn.clone();
+            tokio::spawn(update_cache(redis_clone, broker, group, topic));
 
-    let svc = objects_server::ObjectsServer::new(ObjectService { redis_conn });
+            let svc = objects_server::ObjectsServer::new(ObjectService { redis_conn });
 
-    info!("Running on {:?}", run_url);
-    Server::builder()
-        .add_service(svc)
-        .serve(run_url)
-        .await
-        .unwrap();
-    Ok(())
+            info!("Running on {:?}", run_url);
+            Server::builder()
+                .add_service(svc)
+                .serve(run_url)
+                .await
+                .unwrap();
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    panic!("Couldn't connect to redis");
 }
