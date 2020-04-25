@@ -82,6 +82,7 @@ pub async fn update_cache(
     group_id: String,
     topic: String,
 ) {
+    std::thread::sleep(std::time::Duration::from_secs(30));
     if let Err(e) = handle_stream(&mut redis_conn, &brokers, &group_id, &topic).await {
         error!("{}", e);
     }

@@ -1050,6 +1050,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_submit"
+version = "0.1.0"
+dependencies = [
+ "prost",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "uuid",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"

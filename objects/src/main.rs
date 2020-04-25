@@ -52,6 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = redis::Client::open(redis_url).unwrap();
     let now = std::time::SystemTime::now();
     while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
+        info!("Checking redis");
         if let Ok((redis_conn, fut)) = client.get_multiplexed_async_connection().await {
             tokio::spawn(fut);
             let redis_clone = redis_conn.clone();

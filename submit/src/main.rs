@@ -70,8 +70,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let topic = std::env::var("TOPIC").unwrap();
     let now = std::time::SystemTime::now();
     while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
+        info!("Checking objects");
         if let Ok(obj_client) = objects_client::ObjectsClient::connect(obj_url.clone()).await {
             while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
+                info!("Checking deps");
                 if let Ok(dep_client) =
                     dependencies_client::DependenciesClient::connect(dep_url.clone()).await
                 {

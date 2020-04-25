@@ -1,0 +1,100 @@
+version: '2.1'
+
+services:
+  zoo1:
+    image: zookeeper:3.4.9
+    hostname: zoo1
+    ports:
+      - "2181:2181"
+    environment:
+        ZOO_MY_ID: 1
+        ZOO_PORT: 2181
+        ZOO_SERVERS: server.1=zoo1:2888:3888
+    volumes:
+      - ./zk-single-kafka-single/zoo1/data:/data
+      - ./zk-single-kafka-single/zoo1/datalog:/datalog
+
+  kafka1:
+    image: confluentinc/cp-kafka:5.5.0
+    hostname: kafka1
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka1:19092,LISTENER_DOCKER_EXTERNAL://kafka1:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo1:2181"
+      KAFKA_BROKER_ID: 1
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./zk-single-kafka-single/kafka1/data:/var/lib/kafka/data
+    depends_on:
+      - zoo1
+  manager:
+    image: qnib/plain-kafka-manager:2018-04-25@sha256:8a30ced91432b9b3ef21bc66c4b5635690e1af823684fe6e29ab866d839d10ca
+    ports:
+      - "9000:9000"
+    environment:
+      ZOOKEEPER_HOSTS: "zoo1:2181"
+  redis-objects:
+    image: "redis:alpine"
+    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
+    restart: always
+    ports: 
+      - "6379"
+  objects:
+    build: 
+        context: ./
+        dockerfile: objects/Cargo.toml
+    depends_on: 
+        - redis-objects
+        - kafka1
+    environment: 
+        - RUN_URL=0.0.0.0:6001
+        - REDIS_URL=redis://redis-objects:6379
+        - BROKER=kafka1
+        - GROUP=object-group
+        - TOPIC=ObjectState
+        - RUST_LOG=info
+    ports:
+        - "6001:6001"
+  redis-deps:
+    image: "redis:alpine"
+    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
+    restart: always
+    ports:
+      - "6379"
+  dependencies:
+    build: 
+        context: ./
+        dockerfile: dependencies/Cargo.toml
+    depends_on: 
+        - redis-deps
+        - kafka1
+    environment: 
+        - RUN_URL=0.0.0.0:6002
+        - REDIS_URL=redis://redis-deps:6379
+        - BROKER=kafka1
+        - GROUP=dep-group
+        - TOPIC=ObjectState
+        - RUST_LOG=info
+    ports:
+        - "6002:6002"
+  submit:
+    build: 
+        context: ./
+        dockerfile: submit/Cargo.toml
+    depends_on: 
+        - objects
+        - dependencies
+        - kafka1
+    environment: 
+        - RUN_URL=0.0.0.0:6003
+        - OBJECTS_URL=http://objects:6001
+        - DEPENDENCIES_URL=http://dependencies:6002
+        - BROKER=kafka1
+        - TOPIC=ObjectState
+        - RUST_LOG=info
+    ports:
+        - "6003:6003"
