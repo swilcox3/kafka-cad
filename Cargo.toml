@@ -6,5 +6,6 @@ members = [
     "objects",
     "submit",
     "dependencies",
-    "test_submit"
+    "test_producer",
+    "undo"
 ]

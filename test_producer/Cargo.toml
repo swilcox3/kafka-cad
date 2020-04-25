@@ -1,5 +1,5 @@
 [package]
-name = "test_submit"
+name = "test_producer"
 version = "0.1.0"
 authors = ["Scot Wilcox <wilcox.scot@gmail.com>"]
 edition = "2018"

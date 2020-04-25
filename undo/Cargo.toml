@@ -1,0 +1,47 @@
+# syntax = denzp/cargo-wharf-frontend:v0.1.0-alpha.2
+[package]
+name = "undo"
+version = "0.1.0"
+authors = ["Scot Wilcox <wilcox.scot@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+redis = "0.15.1"
+rdkafka = {version = "0.23.1", features = ["cmake-build"]}
+futures = "0.3.4"
+prost = "0.6"
+tonic = "0.1.1"
+log = "0.4.8"
+env_logger = "0.7.1"
+tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
+bincode = "1.2.1"
+serde = {version = "1.0.104", features = ["derive"]}
+thiserror = "1.0.9"
+uuid = {version = "0.8.1", features = ["v4"]}
+
+[dev-dependencies]
+tokio-macros = "0.2.4"
+
+[build-dependencies]
+tonic-build = "0.1.1"
+
+[package.metadata.wharf.builder]
+image = "rust:slim-buster"
+setup-commands = [
+  { command = ["rustup", "component", "add", "rustfmt"], display = "Install rustfmt" },
+  { command = ["apt-get", "update"], display = "Update apt-get"},
+  { command = ["apt-get", "install", "-y", "cmake", "make", "g++", "zlib1g-dev"], display = "Install dependencies" },
+]
+
+[[package.metadata.wharf.binary]]
+name = "undo"
+destination = "/usr/local/bin/undo"
+
+[package.metadata.wharf.output]
+image = "debian:buster-slim"
+expose = ["6000"]
+entrypoint = ["/usr/local/bin/undo"]
+
+

@@ -8,37 +8,30 @@ message BeginUndoEventInput {
 }
 
 message BeginUndoEventOutput {
-    string event = 1;
 }
 
 message UndoLatestInput {
     string file = 1;
     string user = 2;
+    int64 offset = 3;
 }
 
 message UndoLatestOutput {
-    uint64 change = 1;
+    int64 offset = 1;
 }
 
 message RedoLatestInput {
     string file = 1;
     string user = 2;
+    int64 offset = 3;
 }
 
 message RedoLatestOutput {
-    uint64 change = 1;
+    int64 offset = 1;
 }
-
-message ClearUndoRedoInput {
-    string file = 1;
-    string user = 2;
-}
-
-message ClearUndoRedoOutput {}
 
 service Undo {
     rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
     rpc UndoLatest(UndoLatestInput) returns (UndoLatestOutput);
     rpc RedoLatest(RedoLatestInput) returns (RedoLatestOutput);
-    rpc ClearUndoRedo(ClearUndoRedoInput) returns (ClearUndoRedoOutput);
 }

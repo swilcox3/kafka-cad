@@ -26,6 +26,19 @@ impl objects_server::Objects for ObjectService {
         Ok(Response::new(GetObjectsOutput { objects }))
     }
 
+    async fn get_previous_objects(
+        &self,
+        request: Request<GetPreviousObjectsInput>,
+    ) -> Result<Response<GetPreviousObjectsOutput>, Status> {
+        let msg = request.get_ref();
+        info!("Get previous objects: {:?}", msg);
+        let mut redis_conn = self.redis_conn.clone();
+        let objects = cache::get_previous_objects(&mut redis_conn, msg)
+            .await
+            .map_err(to_status)?;
+        Ok(Response::new(GetPreviousObjectsOutput { objects }))
+    }
+
     async fn get_latest_offset(
         &self,
         request: Request<GetLatestOffsetInput>,

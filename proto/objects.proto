@@ -19,6 +19,20 @@ message GetObjectsOutput {
     repeated OptionChangeMsg objects = 1;
 }
 
+message ObjectAtOffset {
+    int64 offset = 1;
+    string ojb_id = 2;
+}
+
+message GetPreviousObjectsInput {
+    string file = 1;
+    repeated ObjectAtOffset obj_ids = 2;
+}
+
+message GetPreviousObjectsOutput {
+    repeated OptionChangeMsg objects = 1;
+}
+
 message GetLatestOffsetInput {
     string file = 1;
 }
@@ -30,5 +44,7 @@ message GetLatestOffsetOutput {
 
 service Objects {
     rpc GetObjects(GetObjectsInput) returns (GetObjectsOutput);
+    //Will fetch the last state of the object, not the current one
+    rpc GetPreviousObjects(GetPreviousObjectsInput) returns (GetPreviousObjectsOutput);
     rpc GetLatestOffset(GetLatestOffsetInput) returns (GetLatestOffsetOutput);
 }
