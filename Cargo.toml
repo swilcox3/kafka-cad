@@ -7,5 +7,6 @@ members = [
     "submit",
     "dependencies",
     "test_producer",
-    "undo"
+    "undo",
+    "obj_defs/walls"
 ]

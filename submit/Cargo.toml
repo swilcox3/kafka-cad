@@ -38,5 +38,5 @@ destination = "/usr/local/bin/submit"
 
 [package.metadata.wharf.output]
 image = "debian:buster-slim"
-expose = ["7000"]
+expose = ["6000"]
 entrypoint = ["/usr/local/bin/submit"]

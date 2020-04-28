@@ -51,14 +51,12 @@ services:
         - redis-objects
         - kafka1
     environment: 
-        - RUN_URL=0.0.0.0:6001
+        - RUN_URL=0.0.0.0:6000
         - REDIS_URL=redis://redis-objects:6379
         - BROKER=kafka1
         - GROUP=object-group
         - TOPIC=ObjectState
         - RUST_LOG=info
-    ports:
-        - "6001:6001"
   redis-deps:
     image: "redis:alpine"
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
@@ -73,14 +71,12 @@ services:
         - redis-deps
         - kafka1
     environment: 
-        - RUN_URL=0.0.0.0:6002
+        - RUN_URL=0.0.0.0:6000
         - REDIS_URL=redis://redis-deps:6379
         - BROKER=kafka1
         - GROUP=dep-group
         - TOPIC=ObjectState
         - RUST_LOG=info
-    ports:
-        - "6002:6002"
   submit:
     build: 
         context: ./
@@ -90,11 +86,32 @@ services:
         - dependencies
         - kafka1
     environment: 
-        - RUN_URL=0.0.0.0:6003
-        - OBJECTS_URL=http://objects:6001
-        - DEPENDENCIES_URL=http://dependencies:6002
+        - RUN_URL=0.0.0.0:6000
+        - OBJECTS_URL=http://objects
+        - DEPENDENCIES_URL=http://dependencies
         - BROKER=kafka1
         - TOPIC=ObjectState
         - RUST_LOG=info
-    ports:
-        - "6003:6003"
+  undo:
+    build: 
+        context: ./
+        dockerfile: undo/Cargo.toml
+    depends_on: 
+        - objects
+        - submit 
+        - kafka1
+    environment: 
+        - RUN_URL=0.0.0.0:6000
+        - OBJECTS_URL=http://objects
+        - SUBMIT_URL=http://submit
+        - BROKER=kafka1
+        - TOPIC=ObjectState
+        - RUST_LOG=info
+  walls:
+    build: 
+        context: ./
+        dockerfile: obj_defs/walls/Cargo.toml
+    environment: 
+        - RUN_URL=0.0.0.0:6000
+        - RUST_LOG=info
+  

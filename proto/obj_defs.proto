@@ -1,0 +1,21 @@
+syntax = "proto3";
+import "object_state.proto";
+import "representation.proto";
+
+package obj_defs;
+
+message RecalculateInput {
+    repeated object_state.ObjectMsg objects = 1;
+}
+
+message RecalculateOutput {
+    repeated object_state.ObjectMsg objects = 1;
+}
+
+message ClientRepresentationInput {
+    repeated object_state.ObjectMsg objects = 1;
+}
+
+message ClientRepresentationOutput {
+    repeated representation.UpdateOutputMsg output = 1;
+}

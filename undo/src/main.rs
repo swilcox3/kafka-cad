@@ -143,7 +143,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Ok((redis_conn, fut)) = client.get_multiplexed_async_connection().await {
             tokio::spawn(fut);
             let redis_clone = redis_conn.clone();
-            //tokio::spawn(update_cache(redis_clone, broker, group, topic));
+            tokio::spawn(update_cache(redis_clone, broker.clone(), group.clone(), topic.clone()));
             while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
                 info!("Checking objects");
                 if let Ok(obj_client) =
