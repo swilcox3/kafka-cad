@@ -20,8 +20,8 @@ fn redo_stack(file: &str, user: &str) -> String {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UndoEntry {
-    offset: i64,
-    obj_id: String,
+    pub offset: i64,
+    pub obj_id: String,
 }
 
 async fn add_undo_entry(

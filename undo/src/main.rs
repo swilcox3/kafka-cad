@@ -4,8 +4,10 @@ use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
 
 mod cache;
+mod invert;
 mod kafka;
 use cache::*;
+use invert::*;
 use kafka::*;
 
 mod object_state {
@@ -88,13 +90,7 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
-        let msg = request.get_ref();
-        info!("Begin Undo Event: {:?}", msg);
-        let mut redis_conn = self.redis_conn.clone();
-        cache::begin_undo_event(&mut redis_conn, &msg.file, &msg.user)
-            .await
-            .map_err(to_status)?;
-        Ok(Response::new(BeginUndoEventOutput {}))
+        unimplemented!();
     }
 
     async fn redo_latest(
@@ -110,6 +106,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
     let redis_url = std::env::var("REDIS_URL").unwrap();
+    let obj_url = std::env::var("OBJECTS_URL").unwrap();
+    let submit_url = std::env::var("SUBMIT_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let group = std::env::var("GROUP").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
@@ -122,16 +120,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tokio::spawn(fut);
             let redis_clone = redis_conn.clone();
             //tokio::spawn(update_cache(redis_clone, broker, group, topic));
+            while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
+                info!("Checking objects");
+                if let Ok(obj_client) =
+                    objects_client::ObjectsClient::connect(obj_url.clone()).await
+                {
+                    while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
+                        info!("Checking submit");
+                        if let Ok(submit_client) =
+                            submit_changes_client::SubmitChangesClient::connect(submit_url.clone())
+                                .await
+                        {
+                            let svc = undo_server::UndoServer::new(UndoService {
+                                redis_conn,
+                                obj_client,
+                                submit_client,
+                            });
 
-            let svc = undo_server::UndoServer::new(UndoService { redis_conn });
-
-            info!("Running on {:?}", run_url);
-            Server::builder()
-                .add_service(svc)
-                .serve(run_url)
-                .await
-                .unwrap();
-            return Ok(());
+                            info!("Running on {:?}", run_url);
+                            Server::builder()
+                                .add_service(svc)
+                                .serve(run_url)
+                                .await
+                                .unwrap();
+                            return Ok(());
+                        }
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }

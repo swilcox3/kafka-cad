@@ -74,10 +74,13 @@ async fn get_objects_to_update(
     obj_ids: Vec<String>,
     objects: &mut HashMap<String, ChangeMsg>,
 ) -> Result<(), tonic::Status> {
+    let mut entries = Vec::new();
+    for id in obj_ids {
+        entries.push(ObjectAtOffset { offset, obj_id: id });
+    }
     let input = GetObjectsInput {
         file: file.clone(),
-        offset,
-        obj_ids,
+        obj_ids: entries,
     };
     let objs_msg = obj_client
         .get_objects(Request::new(input))

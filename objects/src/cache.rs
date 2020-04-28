@@ -120,33 +120,9 @@ pub async fn get_objects(
     input: &GetObjectsInput,
 ) -> Result<Vec<OptionChangeMsg>, ObjError> {
     let mut results = Vec::new();
-    for key in &input.obj_ids {
-        let mut current = OptionChangeMsg { change: None };
-        match get_object(conn, &input.file, input.offset, &key).await {
-            Ok(bytes) => {
-                current.change = Some(ChangeMsg::decode(bytes.as_ref())?);
-            }
-            Err(e) => {
-                error!("{}", e);
-                match e {
-                    ObjError::ObjNotFound(..) => (),
-                    _ => return Err(e),
-                }
-            }
-        }
-        results.push(current);
-    }
-    Ok(results)
-}
-
-pub async fn get_previous_objects(
-    conn: &mut MultiplexedConnection,
-    input: &GetPreviousObjectsInput,
-) -> Result<Vec<OptionChangeMsg>, ObjError> {
-    let mut results = Vec::new();
     for entry in &input.obj_ids {
         let mut current = OptionChangeMsg { change: None };
-        match get_object(conn, &input.file, entry.offset - 1, &entry.obj_id).await {
+        match get_object(conn, &input.file, entry.offset, &entry.obj_id).await {
             Ok(bytes) => {
                 current.change = Some(ChangeMsg::decode(bytes.as_ref())?);
             }

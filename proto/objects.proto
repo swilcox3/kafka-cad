@@ -3,10 +3,14 @@ import "object_state.proto";
 
 package objects;
 
+message ObjectAtOffset {
+    int64 offset = 1;
+    string obj_id = 2;
+}
+
 message GetObjectsInput {
     string file = 1;
-    int64 offset = 2;
-    repeated string obj_ids = 3;
+    repeated ObjectAtOffset obj_ids = 2;
 }
 
 message OptionChangeMsg {
@@ -16,20 +20,6 @@ message OptionChangeMsg {
 
 message GetObjectsOutput {
     //This will always have the same length as GetObjectsInput.obj_ids
-    repeated OptionChangeMsg objects = 1;
-}
-
-message ObjectAtOffset {
-    int64 offset = 1;
-    string ojb_id = 2;
-}
-
-message GetPreviousObjectsInput {
-    string file = 1;
-    repeated ObjectAtOffset obj_ids = 2;
-}
-
-message GetPreviousObjectsOutput {
     repeated OptionChangeMsg objects = 1;
 }
 
@@ -44,7 +34,5 @@ message GetLatestOffsetOutput {
 
 service Objects {
     rpc GetObjects(GetObjectsInput) returns (GetObjectsOutput);
-    //Will fetch the last state of the object, not the current one
-    rpc GetPreviousObjects(GetPreviousObjectsInput) returns (GetPreviousObjectsOutput);
     rpc GetLatestOffset(GetLatestOffsetInput) returns (GetLatestOffsetOutput);
 }
