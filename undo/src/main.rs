@@ -90,7 +90,31 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
-        unimplemented!();
+        let msg = request.get_ref();
+        info!("Undo Latest: {:?}", msg);
+        let mut redis_conn = self.redis_conn.clone();
+        let mut obj_client = self.obj_client.clone();
+        let mut submit_client = self.submit_client.clone();
+        let latest = cache::undo(&mut redis_conn, &msg.file, &msg.user)
+            .await
+            .map_err(to_status)?;
+        let inverted =
+            invert::invert_changes(&mut obj_client, &msg.file, &msg.user, latest).await?;
+        let input = SubmitChangesInput {
+            file: msg.file.clone(),
+            user: msg.user.clone(),
+            offset: msg.offset,
+            changes: inverted,
+        };
+        let mut output = submit_client
+            .submit_changes(Request::new(input))
+            .await?
+            .into_inner();
+        if let Some(offset) = output.offsets.pop() {
+            Ok(Response::new(UndoLatestOutput { offset }))
+        } else {
+            Err(Status::cancelled("No offsets received from submit service"))
+        }
     }
 
     async fn redo_latest(

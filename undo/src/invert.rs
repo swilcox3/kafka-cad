@@ -27,9 +27,96 @@ async fn get_all_previous_objects(
 pub async fn invert_changes(
     obj_client: &mut ObjClient,
     file: &str,
-    entries: &Vec<UndoEntry>,
+    user: &str,
+    entries: Vec<UndoEntry>,
 ) -> Result<Vec<ChangeMsg>, Status> {
-    let previous = get_all_previous_objects(obj_client, file, entries).await?;
+    let previous = get_all_previous_objects(obj_client, file, &entries).await?;
     let mut inverted = Vec::new();
+    for (current, prev) in entries.into_iter().zip(previous.into_iter()) {
+        match prev.change {
+            Some(prev_change) => match current.change_type {
+                UndoChangeType::Add => {
+                    inverted.push(ChangeMsg {
+                        id: current.obj_id,
+                        user: String::from(user),
+                        change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {})),
+                    });
+                }
+                UndoChangeType::Modify => match prev_change.change_type {
+                    Some(change_msg::ChangeType::Add(prev_object)) => {
+                        inverted.push(ChangeMsg {
+                            id: current.obj_id,
+                            user: String::from(user),
+                            change_type: Some(change_msg::ChangeType::Modify(prev_object)),
+                        });
+                    }
+                    Some(change_msg::ChangeType::Modify(prev_object)) => {
+                        inverted.push(ChangeMsg {
+                            id: current.obj_id,
+                            user: String::from(user),
+                            change_type: Some(change_msg::ChangeType::Modify(prev_object)),
+                        });
+                    }
+                    Some(change_msg::ChangeType::Delete(..)) => {
+                        error!("Invalid modify coming after a delete");
+                    }
+                    None => {
+                        error!("No data to undo back to");
+                    }
+                },
+                UndoChangeType::Delete => match prev_change.change_type {
+                    Some(change_msg::ChangeType::Add(prev_object)) => {
+                        inverted.push(ChangeMsg {
+                            id: current.obj_id,
+                            user: String::from(user),
+                            change_type: Some(change_msg::ChangeType::Add(prev_object)),
+                        });
+                    }
+                    Some(change_msg::ChangeType::Modify(prev_object)) => {
+                        inverted.push(ChangeMsg {
+                            id: current.obj_id,
+                            user: String::from(user),
+                            change_type: Some(change_msg::ChangeType::Add(prev_object)),
+                        });
+                    }
+                    Some(change_msg::ChangeType::Delete(..)) => {
+                        error!("Object got deleted twice");
+                    }
+                    None => {
+                        error!("No data to undo back to");
+                    }
+                },
+                UndoChangeType::NotSet => match prev_change.change_type {
+                    Some(change_msg::ChangeType::Add(prev_object)) => {
+                        inverted.push(ChangeMsg {
+                            id: current.obj_id,
+                            user: String::from(user),
+                            change_type: Some(change_msg::ChangeType::Add(prev_object)),
+                        });
+                    }
+                    Some(change_msg::ChangeType::Modify(prev_object)) => {
+                        inverted.push(ChangeMsg {
+                            id: current.obj_id,
+                            user: String::from(user),
+                            change_type: Some(change_msg::ChangeType::Add(prev_object)),
+                        });
+                    }
+                    Some(change_msg::ChangeType::Delete(..)) => {
+                        error!("Object not set after a delete");
+                    }
+                    None => {
+                        error!("No data to undo back to");
+                    }
+                },
+            },
+            None => {
+                inverted.push(ChangeMsg {
+                    id: current.obj_id,
+                    user: String::from(user),
+                    change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {})),
+                });
+            }
+        }
+    }
     Ok(inverted)
 }

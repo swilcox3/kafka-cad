@@ -7,9 +7,7 @@ fn extract_info(changes: Vec<ChangeMsg>) -> (Vec<RefIdMsg>, HashMap<String, Chan
     for change in changes {
         if let Some(change_type) = &change.change_type {
             match change_type {
-                change_msg::ChangeType::Add(object)
-                | change_msg::ChangeType::Modify(object)
-                | change_msg::ChangeType::Delete(object) => {
+                change_msg::ChangeType::Add(object) | change_msg::ChangeType::Modify(object) => {
                     if let Some(deps) = &object.dependencies {
                         for opt_ref in &deps.references {
                             if let Some(refer) = &opt_ref.reference {
@@ -20,6 +18,7 @@ fn extract_info(changes: Vec<ChangeMsg>) -> (Vec<RefIdMsg>, HashMap<String, Chan
                         }
                     }
                 }
+                change_msg::ChangeType::Delete(..) => (),
             }
         }
         objects.insert(change.id.clone(), change);

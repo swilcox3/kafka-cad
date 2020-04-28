@@ -110,6 +110,8 @@ message ObjectMsg {
     bytes obj_data = 3;
 }
 
+message DeleteMsg {}
+
 //This is the fundamental message sent to the ObjectState topic.
 message ChangeMsg {
     string id = 1;
@@ -117,6 +119,6 @@ message ChangeMsg {
     oneof change_type {
         ObjectMsg add = 3;
         ObjectMsg modify = 4;
-        ObjectMsg delete = 5;
+        DeleteMsg delete = 5;
     }
 }

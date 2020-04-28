@@ -51,7 +51,10 @@ fn ref_msg(owner: &RefIdMsg, other: &RefIdMsg) -> ReferenceMsg {
     ReferenceMsg {
         owner: Some(owner.clone()),
         other: Some(other.clone()),
-        update_type: Some(reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg{owner_index: 0, other_index: 0}))
+        update_type: Some(reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg {
+            owner_index: 0,
+            other_index: 0,
+        })),
     }
 }
 
@@ -98,15 +101,11 @@ fn modify_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8>
     bytes
 }
 
-fn delete_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
+fn delete_change_msg(id: String) -> Vec<u8> {
     let msg = ChangeMsg {
         id,
         user: "Doesn't matter".to_string(),
-        change_type: Some(ChangeType::Delete(ObjectMsg {
-            dependencies: Some(DependenciesMsg { references }),
-            results: None,
-            obj_data: Vec::new(),
-        })),
+        change_type: Some(ChangeType::Delete(DeleteMsg {})),
     };
     let mut bytes = Vec::new();
     msg.encode(&mut bytes).unwrap();
@@ -241,10 +240,7 @@ async fn test_deps_versioned() {
         ]
     ));
 
-    let obj_0 = delete_change_msg(
-        obj_0_id.clone(),
-        vec![opt_ref_msg(&obj_0_pt_1, &obj_1_pt_0)],
-    );
+    let obj_0 = delete_change_msg(obj_0_id.clone());
     update_deps(&mut conn, &file, 3, &obj_0).await.unwrap();
 
     let results = get_all_deps(&mut conn, &file, 3, &vec![obj_0_pt_0.clone()])

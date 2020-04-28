@@ -19,9 +19,18 @@ fn redo_stack(file: &str, user: &str) -> String {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum UndoChangeType {
+    Add,
+    Modify,
+    Delete,
+    NotSet,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UndoEntry {
     pub offset: i64,
     pub obj_id: String,
+    pub change_type: UndoChangeType,
 }
 
 async fn add_undo_entry(
@@ -29,8 +38,13 @@ async fn add_undo_entry(
     event: &str,
     obj_id: String,
     offset: i64,
+    change_type: UndoChangeType,
 ) -> Result<(), UndoError> {
-    let entry = UndoEntry { offset, obj_id };
+    let entry = UndoEntry {
+        offset,
+        obj_id,
+        change_type,
+    };
     let serialized = bincode::serialize(&entry)?;
     redis_conn.rpush(event, serialized).await?;
     Ok(())
@@ -111,11 +125,17 @@ pub async fn update_undo_cache(
     let msg = ChangeMsg::decode(msg_bytes)?;
     let obj_id = msg.id;
     let user = msg.user;
+    let change_type = match msg.change_type {
+        Some(change_msg::ChangeType::Add(..)) => UndoChangeType::Add,
+        Some(change_msg::ChangeType::Modify(..)) => UndoChangeType::Modify,
+        Some(change_msg::ChangeType::Delete(..)) => UndoChangeType::Delete,
+        None => UndoChangeType::NotSet,
+    };
     let undo_stack = undo_stack(file, &user);
     let cur_event: Option<String> = redis_conn.lindex(undo_stack, -1).await?;
     match cur_event {
         Some(event) => {
-            add_undo_entry(redis_conn, &event, obj_id, offset).await?;
+            add_undo_entry(redis_conn, &event, obj_id, offset, change_type).await?;
             Ok(())
         }
         None => Err(UndoError::NoUndoEvent(user, String::from(file))),

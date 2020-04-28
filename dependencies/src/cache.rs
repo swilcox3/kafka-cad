@@ -33,21 +33,25 @@ pub mod object_state {
     impl From<super::Reference> for ReferenceMsg {
         fn from(refer: super::Reference) -> ReferenceMsg {
             let update_type = match refer.update_type {
-                super::UpdateType::Equals(owner_index, other_index) => reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg {
-                    owner_index,
-                    other_index
-                }),
-                super::UpdateType::Interp(owner_index, first_other, second_other, interp) => reference_msg::UpdateType::Interp(UpdateTypeInterpolationMsg {
-                    owner_index,
-                    first_other,
-                    second_other,
-                    interp
-                }),
+                super::UpdateType::Equals(owner_index, other_index) => {
+                    reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg {
+                        owner_index,
+                        other_index,
+                    })
+                }
+                super::UpdateType::Interp(owner_index, first_other, second_other, interp) => {
+                    reference_msg::UpdateType::Interp(UpdateTypeInterpolationMsg {
+                        owner_index,
+                        first_other,
+                        second_other,
+                        interp,
+                    })
+                }
             };
             ReferenceMsg {
                 owner: Some(RefIdMsg::from(refer.owner)),
                 other: Some(RefIdMsg::from(refer.other)),
-                update_type: Some(update_type)
+                update_type: Some(update_type),
             }
         }
     }
@@ -116,14 +120,21 @@ impl From<&RefIdMsg> for RefID {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 enum UpdateType {
     Equals(u64, u64),
-    Interp(u64, u64, u64, f64)
+    Interp(u64, u64, u64, f64),
 }
 
 impl From<&reference_msg::UpdateType> for UpdateType {
     fn from(update_type: &reference_msg::UpdateType) -> UpdateType {
         match update_type {
-            reference_msg::UpdateType::Equals(msg) => UpdateType::Equals(msg.owner_index, msg.other_index),
-            reference_msg::UpdateType::Interp(msg) => UpdateType::Interp(msg.owner_index, msg.first_other, msg.second_other, msg.interp)
+            reference_msg::UpdateType::Equals(msg) => {
+                UpdateType::Equals(msg.owner_index, msg.other_index)
+            }
+            reference_msg::UpdateType::Interp(msg) => UpdateType::Interp(
+                msg.owner_index,
+                msg.first_other,
+                msg.second_other,
+                msg.interp,
+            ),
         }
     }
 }
@@ -131,7 +142,7 @@ impl From<&reference_msg::UpdateType> for UpdateType {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct Sub {
     ref_id: RefID,
-    update_type: UpdateType
+    update_type: UpdateType,
 }
 
 impl std::hash::Hash for Sub {
@@ -146,7 +157,7 @@ impl std::cmp::Eq for Sub {}
 struct Reference {
     owner: RefID,
     other: RefID,
-    update_type: UpdateType
+    update_type: UpdateType,
 }
 
 impl std::hash::Hash for Reference {
@@ -302,38 +313,38 @@ async fn populate_changed_subs(
     if let Some(ref_owner) = &refer.owner {
         if let Some(ref_other) = &refer.other {
             if let Some(update_type) = &refer.update_type {
-            let ref_owner = RefID::from(ref_owner);
-            let ref_other = RefID::from(ref_other);
-            let update_type = UpdateType::from(update_type);
-            if !changed_subs.contains_key(&ref_other) {
-                match get_ref_id_subs(conn, file, &ref_other, offset).await {
-                    Ok(subs) => {
-                        debug!(
-                            "Got subs {:#?} for ref_id {:?} from file {}",
-                            subs, ref_other, file
-                        );
-                        changed_subs.insert(ref_other.clone(), subs);
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-            if let Some(subs) = changed_subs.get_mut(&ref_other) {
-                match change_type {
-                    DepChange::Add | DepChange::Modify => {
-                        subs.insert(Sub {
-                            ref_id: ref_owner,
-                            update_type
-                        });
-                    }
-                    DepChange::Delete => {
-                        subs.remove(&Sub {
-                            ref_id: ref_owner,
-                            update_type
-                        });
+                let ref_owner = RefID::from(ref_owner);
+                let ref_other = RefID::from(ref_other);
+                let update_type = UpdateType::from(update_type);
+                if !changed_subs.contains_key(&ref_other) {
+                    match get_ref_id_subs(conn, file, &ref_other, offset).await {
+                        Ok(subs) => {
+                            debug!(
+                                "Got subs {:#?} for ref_id {:?} from file {}",
+                                subs, ref_other, file
+                            );
+                            changed_subs.insert(ref_other.clone(), subs);
+                        }
+                        Err(e) => return Err(e),
                     }
                 }
+                if let Some(subs) = changed_subs.get_mut(&ref_other) {
+                    match change_type {
+                        DepChange::Add | DepChange::Modify => {
+                            subs.insert(Sub {
+                                ref_id: ref_owner,
+                                update_type,
+                            });
+                        }
+                        DepChange::Delete => {
+                            subs.remove(&Sub {
+                                ref_id: ref_owner,
+                                update_type,
+                            });
+                        }
+                    }
+                }
             }
-        }
         }
     }
     Ok(())
@@ -475,8 +486,9 @@ async fn update_deps_inner(
                     modify_deps(conn, file, &change.id, &deps, offset).await?;
                 }
             }
-            change_msg::ChangeType::Delete(object) => {
-                if let Some(deps) = object.dependencies {
+            change_msg::ChangeType::Delete(..) => {
+                let prev_obj_refs = get_obj_refs(conn, file, &change.id).await?;
+                if let Some((_, deps)) = prev_obj_refs {
                     delete_deps(conn, file, &change.id, &deps, offset).await?;
                 }
             }
