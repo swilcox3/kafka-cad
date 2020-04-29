@@ -13,7 +13,7 @@ async fn get_all_previous_objects(
             obj_id: entry.obj_id.clone(),
         });
     }
-    let mut input = GetObjectsInput {
+    let input = GetObjectsInput {
         file: String::from(file),
         obj_ids,
     };

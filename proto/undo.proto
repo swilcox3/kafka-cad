@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "object_state.proto";
 
 package undo;
 
@@ -13,21 +14,19 @@ message BeginUndoEventOutput {
 message UndoLatestInput {
     string file = 1;
     string user = 2;
-    int64 offset = 3;
 }
 
 message UndoLatestOutput {
-    int64 offset = 1;
+    repeated object_state.ChangeMsg changes = 1;
 }
 
 message RedoLatestInput {
     string file = 1;
     string user = 2;
-    int64 offset = 3;
 }
 
 message RedoLatestOutput {
-    int64 offset = 1;
+    repeated object_state.ChangeMsg changes = 1;
 }
 
 service Undo {

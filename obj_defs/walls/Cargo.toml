@@ -9,15 +9,14 @@ edition = "2018"
 
 [dependencies]
 prost = "0.6"
-tonic = "0.1.1"
 log = "0.4.8"
 env_logger = "0.7.1"
-actix-web = "2.0.0"
-actix-protobuf = "0.5.1"
-actix-rt = "1.0.0"
+tonic = "0.1.1"
+futures = "0.3.4"
+tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
 
 [build-dependencies]
-prost-build = "0.6"
+tonic-build = "0.1.1"
 
 [package.metadata.wharf.builder]
 image = "rust:slim-buster"

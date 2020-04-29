@@ -1,18 +1,12 @@
 syntax = "proto3";
 import "object_state.proto";
-import "representation.proto";
+import "obj_defs.proto";
 
 package walls;
 
-message Point3Msg {
-    double x = 1;
-    double y = 2;
-    double z = 3;
-}
-
 message WallMsg {
-    Point3Msg first_pt = 1;
-    Point3Msg second_pt = 2;
+    object_state.Point3Msg first_pt = 1;
+    object_state.Point3Msg second_pt = 2;
     double width = 3;
     double height = 4;
 }
@@ -23,4 +17,10 @@ message CreateWallsInput {
 
 message CreateWallsOutput {
     repeated object_state.ObjectMsg walls = 1;
+}
+
+service Walls {
+    rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
+    rpc Recalculate(obj_defs.RecalculateInput) returns (obj_defs.RecalculateOutput);
+    rpc ClientRepresentation(obj_defs.ClientRepresentationInput) returns (obj_defs.ClientRepresentationOutput);
 }
