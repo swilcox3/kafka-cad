@@ -9,5 +9,6 @@ members = [
     "test_producer",
     "undo",
     "obj_defs/walls",
-    "common/math"
+    "common/math",
+    "common/id_gen"
 ]

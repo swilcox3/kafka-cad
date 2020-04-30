@@ -5,10 +5,11 @@ import "obj_defs.proto";
 package walls;
 
 message WallMsg {
-    object_state.Point3Msg first_pt = 1;
-    object_state.Point3Msg second_pt = 2;
-    double width = 3;
-    double height = 4;
+    string id = 1;
+    object_state.Point3Msg first_pt = 2;
+    object_state.Point3Msg second_pt = 3;
+    double width = 4;
+    double height = 5;
 }
 
 message CreateWallsInput {

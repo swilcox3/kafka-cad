@@ -2,13 +2,13 @@ syntax = "proto3";
 
 package representation;
 
-message Point3Msg {
+message Point3RepMsg {
     double x = 1;
     double y = 2;
     double z = 3;
 }
 
-message Point2Msg {
+message Point2RepMsg {
     double x = 1;
     double y = 2;
 }
@@ -23,8 +23,8 @@ message MeshDataMsg
 message InstanceDataMsg
 {
     repeated double transform = 2;
-    Point3Msg bottom_left = 3;
-    Point3Msg top_right = 4;
+    Point3RepMsg bottom_left = 3;
+    Point3RepMsg top_right = 4;
     string source = 5;
     string meta_json = 6;
 }
@@ -39,26 +39,26 @@ message RGBAMsg
 
 message Line2DMsg
 {
-    Point2Msg first = 1;
-    Point2Msg second = 2;
+    Point2RepMsg first = 1;
+    Point2RepMsg second = 2;
 }
 
 message Rect2DMsg
 {
-    Point2Msg bottom_left = 1;
-    Point2Msg top_right = 2;
+    Point2RepMsg bottom_left = 1;
+    Point2RepMsg top_right = 2;
 }
 
 message Arc2DMsg
 {
-    Point2Msg center = 1;
+    Point2RepMsg center = 1;
     double radius = 2;
     double start_angle = 3;
     double end_angle = 4;
 }
 
 message Poly2DMsg{
-    repeated Point2Msg pts = 1;
+    repeated Point2RepMsg pts = 1;
 }
 
 message DrawElement2DMsg

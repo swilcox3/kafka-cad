@@ -1,6 +1,8 @@
 use log::*;
-use tonic::transport::{Channel, Server};
+use math::*;
+use tonic::transport::Server;
 use tonic::{Request, Response, Status};
+use serde_json::json;
 
 mod walls {
     include!(concat!(env!("OUT_DIR"), "/walls.rs"));
@@ -27,96 +29,41 @@ mod obj_defs {
 }
 use obj_defs::*;
 
+fn to_point3f(pt: &Point3Msg) -> Point3f {
+    Point3f::new(pt.x, pt.y, pt.z)
+}
+
+fn to_point3msg(pt: &Point3f) -> Point3Msg {
+    Point3Msg {
+        x: pt.x, 
+        y: pt.y, 
+        z: pt.z
+    }
+}
+
 fn get_third_pt(pt_opt: &Option<Point3Msg>, height: f64) -> Option<Point3Msg> {
     match pt_opt {
         Some(pt) => Some(Point3Msg {
-            x: pt_opt.x,
-            y: pt_opt.y,
-            z: pt_opt.z + height,
+            x: pt.x,
+            y: pt.y,
+            z: pt.z + height,
         }),
         None => None,
     }
 }
-pub fn minimum_of_list(list: &Vec<f64>) -> f64 {
-    let mut iter = list.iter();
-    let init = iter.next().unwrap();
-    let result = iter.fold(init, |acc, x| {
-        // return None if x is NaN
-        let cmp = x.partial_cmp(&acc);
-        if let Some(std::cmp::Ordering::Less) = cmp {
-            x
-        } else {
-            acc
+
+fn bbox(pt_opt_1: &Option<Point3Msg>, pt_opt_2: &Option<Point3Msg>, width: f64, height: f64) -> Option<AxisAlignedBBoxMsg> {
+    let mut result = None;
+    if let Some(pt_1) = pt_opt_1 {
+        if let Some(pt_2) = pt_opt_2 {
+            let bbox = get_axis_aligned_bound_box(&to_point3f(pt_1), &to_point3f(pt_2), width, height);
+            result = Some(AxisAlignedBBoxMsg {
+                bottom_left: Some(to_point3msg(&bbox.bottom_left)),
+                top_right: Some(to_point3msg(&bbox.top_right))
+            });
         }
-    });
-    *result
-}
-
-pub fn maximum_of_list(list: &Vec<f64>) -> f64 {
-    let mut iter = list.into_iter();
-    let init = iter.next().unwrap();
-    let result = iter.fold(init, |acc, x| {
-        // return None if x is NaN
-        let cmp = x.partial_cmp(&acc);
-        if let Some(std::cmp::Ordering::Greater) = cmp {
-            x
-        } else {
-            acc
-        }
-    });
-    *result
-}
-
-pub fn offset_line(
-    first_pt: &Point3Msg,
-    second_pt: &Point3Msg,
-    width: f64,
-) -> (Point3Msg, Point3Msg, Point3Msg, Point3Msg) {
-    let dir = second_pt - first_pt;
-    let perp = dir.cross(Vector3f::unit_z()).normalize();
-    let offset = perp * width;
-    let first = first_pt + offset;
-    let second = second_pt + offset;
-    let third = second_pt - offset;
-    let fourth = first_pt - offset;
-    (first, second, third, fourth)
-}
-
-pub fn get_axis_aligned_bound_box(
-    first_pt: &Point3Msg,
-    second_pt: &Point3Msg,
-    width: f64,
-    height: f64,
-) -> Cube {
-    let (first, second, third, fourth) = offset_line(first_pt, second_pt, width);
-    let vert_offset = Vector3f::new(0.0, 0.0, height);
-    let fifth = first + vert_offset;
-    let sixth = second + vert_offset;
-    let seventh = third + vert_offset;
-    let eighth = fourth + vert_offset;
-    let x_vals = vec![
-        first.x, second.x, third.x, fourth.x, fifth.x, sixth.x, seventh.x, eighth.x,
-    ];
-    let y_vals = vec![
-        first.y, second.y, third.y, fourth.y, fifth.y, sixth.y, seventh.y, eighth.y,
-    ];
-    let z_vals = vec![
-        first.z, second.z, third.z, fourth.z, fifth.z, sixth.z, seventh.z, eighth.z,
-    ];
-    let bottom_left = Point3f::new(
-        minimum_of_list(&x_vals).unwrap(),
-        minimum_of_list(&y_vals).unwrap(),
-        minimum_of_list(&z_vals).unwrap(),
-    );
-    let top_right = Point3f::new(
-        maximum_of_list(&x_vals).unwrap(),
-        maximum_of_list(&y_vals).unwrap(),
-        maximum_of_list(&z_vals).unwrap(),
-    );
-    Cube {
-        bottom_left,
-        top_right,
     }
+    result
 }
 
 struct WallsService {}
@@ -130,9 +77,48 @@ impl walls_server::Walls for WallsService {
         let msg = request.get_ref();
         info!("Create walls: {:?}", msg);
         let mut results = Vec::new();
-        for wall in msg.walls {
+        for wall in &msg.walls {
             let output = ObjectMsg {
-                dependencies: None,
+                dependencies: Some(DependenciesMsg {
+                    references: vec![
+                        OptionReferenceMsg {
+                            reference: Some(ReferenceMsg {
+                                owner: Some(RefIdMsg {
+                                    id: wall.id.clone(),
+                                    ref_type: ref_id_msg::RefType::ProfileLine as i32,
+                                    index: 0
+                                }),
+                                other: Some(RefIdMsg {
+                                    id: wall.id.clone(),
+                                    ref_type: ref_id_msg::RefType::ProfilePoint as i32,
+                                    index: 0
+                                }),
+                                update_type: Some(reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg{
+                                    owner_index: 0,
+                                    other_index: 0
+                                }))
+                            })
+                        },
+                        OptionReferenceMsg {
+                            reference: Some(ReferenceMsg {
+                                owner: Some(RefIdMsg {
+                                    id: wall.id.clone(),
+                                    ref_type: ref_id_msg::RefType::ProfileLine as i32,
+                                    index: 0
+                                }),
+                                other: Some(RefIdMsg {
+                                    id: wall.id.clone(),
+                                    ref_type: ref_id_msg::RefType::ProfilePoint as i32,
+                                    index: 1
+                                }),
+                                update_type: Some(reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg{
+                                    owner_index: 1,
+                                    other_index: 0
+                                }))
+                            })
+                        },
+                    ]
+                }),
                 results: Some(ResultsMsg {
                     visible: true,
                     profile: Some(ProfileMsg {
@@ -146,16 +132,17 @@ impl walls_server::Walls for WallsService {
                                 second: wall.second_pt.clone(),
                             }),
                         }],
-                        planes: vec![OptionPlaneMsg {
-                            plane: Some(PlaneMsg {
-                                first: wall.first_pt.clone(),
-                                second: wall.second_pt.clone(),
-                                third: get_third_pt(&wall.second_pt, wall.height),
-                            }),
-                        }],
+                        planes: Vec::new(),
                     }),
-                    bbox: AxisAlignedBboxMsg {},
+                    bbox: bbox(&wall.first_pt, &wall.second_pt, wall.width, wall.height),
+                    properties: Some(PropertiesMsg {
+                        prop_json: json!({
+                            "Width": wall.width,
+                            "Height": wall.height
+                        }).to_string()
+                    })
                 }),
+                obj_data: Vec::new()
             };
             results.push(output);
         }
@@ -166,7 +153,10 @@ impl walls_server::Walls for WallsService {
         &self,
         request: Request<RecalculateInput>,
     ) -> Result<Response<RecalculateOutput>, Status> {
-        unimplemented!();
+        let msg = request.into_inner();
+        info!("Recalculate: {:?}", msg);
+        //Walls don't have any inner data to update
+        Ok(Response::new(RecalculateOutput{ objects: msg.objects }))
     }
 
     async fn client_representation(
