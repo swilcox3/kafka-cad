@@ -8,5 +8,6 @@ members = [
     "dependencies",
     "test_producer",
     "undo",
-    "obj_defs/walls"
+    "obj_defs/walls",
+    "common/math"
 ]
