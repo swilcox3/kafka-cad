@@ -2,22 +2,12 @@ syntax = "proto3";
 
 package api;
 
-message OpenFileInput {
-    string file = 1;
-    string user = 2;
-}
-
-message OpenFileOutput {
-    updates.UpdateChangeMsg update = 1;
-}
-
 message BeginUndoEventInput {
     string file = 1;
     string user = 2;
 }
 
 message BeginUndoEventOutput {
-    string event = 1;
 }
 
 message UndoLatestInput {
@@ -26,7 +16,7 @@ message UndoLatestInput {
 }
 
 message UndoLatestOutput {
-    uint64 change = 1;
+    uint64 offset = 1;
 }
 
 message RedoLatestInput {
@@ -35,7 +25,7 @@ message RedoLatestInput {
 }
 
 message RedoLatestOutput {
-    uint64 change = 1;
+    uint64 offset = 1;
 }
 
 message Point3Msg {
@@ -47,8 +37,7 @@ message Point3Msg {
 message OpPrefixMsg {
     string file = 1;
     string user = 2;
-    string event = 3;
-    uint64 cur_change = 4;
+    uint64 offset = 3;
 }
 
 message CreateWallInput {
@@ -61,12 +50,11 @@ message CreateWallInput {
 
 message CreateWallOutput {
     string obj_id = 1;
-    uint64 change = 2;
+    uint64 offset = 2;
 }
 
 service Api 
 {
-    rpc OpenFile(OpenFileInput) returns (stream OpenFileOutput);
     rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
     rpc UndoLatest(UndoLatestInput) returns (UndoLatestOutput);
     rpc RedoLatest(RedoLatestInput) returns (RedoLatestOutput);
