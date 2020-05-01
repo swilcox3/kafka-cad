@@ -25,12 +25,6 @@ mod objects {
 use objects::*;
 type ObjClient = objects_client::ObjectsClient<Channel>;
 
-mod submit {
-    tonic::include_proto!("submit");
-}
-use submit::*;
-pub type SubmitClient = submit_changes_client::SubmitChangesClient<Channel>;
-
 #[derive(Debug, Error)]
 pub enum UndoError {
     #[error("No events to undo for user {0} in file {1}")]
@@ -64,9 +58,13 @@ pub fn to_status<T: Into<UndoError>>(err: T) -> tonic::Status {
     obj_error.into()
 }
 
+pub fn unavailable<T: std::fmt::Debug>(err: T) -> Status {
+    Status::unavailable(format!("Unable to connect to service: {:?}", err))
+}
+
 struct UndoService {
     redis_conn: redis::aio::MultiplexedConnection,
-    obj_client: ObjClient,
+    obj_url: String,
 }
 
 #[tonic::async_trait]
@@ -91,7 +89,9 @@ impl undo_server::Undo for UndoService {
         let msg = request.get_ref();
         info!("Undo Latest: {:?}", msg);
         let mut redis_conn = self.redis_conn.clone();
-        let mut obj_client = self.obj_client.clone();
+        let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .await
+            .map_err(unavailable)?;
         let latest = cache::undo(&mut redis_conn, &msg.file, &msg.user)
             .await
             .map_err(to_status)?;
@@ -113,7 +113,9 @@ impl undo_server::Undo for UndoService {
         let msg = request.get_ref();
         info!("Redo Latest: {:?}", msg);
         let mut redis_conn = self.redis_conn.clone();
-        let mut obj_client = self.obj_client.clone();
+        let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .await
+            .map_err(unavailable)?;
         let latest = cache::redo(&mut redis_conn, &msg.file, &msg.user)
             .await
             .map_err(to_status)?;
@@ -152,26 +154,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 group.clone(),
                 topic.clone(),
             ));
-            while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
-                info!("Checking objects");
-                if let Ok(obj_client) =
-                    objects_client::ObjectsClient::connect(obj_url.clone()).await
-                {
-                    let svc = undo_server::UndoServer::new(UndoService {
-                        redis_conn,
-                        obj_client,
-                    });
+            let svc = undo_server::UndoServer::new(UndoService {
+                redis_conn,
+                obj_url,
+            });
 
-                    info!("Running on {:?}", run_url);
-                    Server::builder()
-                        .add_service(svc)
-                        .serve(run_url)
-                        .await
-                        .unwrap();
-                    return Ok(());
-                }
-                std::thread::sleep(std::time::Duration::from_secs(1));
-            }
+            info!("Running on {:?}", run_url);
+            Server::builder()
+                .add_service(svc)
+                .serve(run_url)
+                .await
+                .unwrap();
+            return Ok(());
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }

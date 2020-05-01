@@ -7,7 +7,6 @@ fn main() {
                 "../proto/undo.proto",
                 "../proto/object_state.proto",
                 "../proto/objects.proto",
-                "../proto/submit.proto",
             ],
             &["../proto"],
         )

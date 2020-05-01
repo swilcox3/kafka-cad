@@ -17,7 +17,7 @@ mod dependencies {
 use dependencies::*;
 
 struct DepsService {
-    redis_conn: MultiplexedConnection,
+    redis_url: MultiplexedConnection,
 }
 
 #[tonic::async_trait]

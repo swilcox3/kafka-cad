@@ -1,7 +1,7 @@
 fn main() {
     tonic_build::configure()
         .build_client(true)
-        .build_server(true) 
+        .build_server(true)
         .compile(
             &[
                 "../proto/api.proto",
@@ -9,7 +9,8 @@ fn main() {
                 "../proto/undo.proto",
                 "../proto/object_state.proto",
                 "../proto/obj_defs.proto",
-                "../proto/representation.proto"
+                "../proto/representation.proto",
+                "../proto/submit.proto",
             ],
             &["../proto"],
         )

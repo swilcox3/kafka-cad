@@ -219,11 +219,7 @@ mod tests {
         let change_3 = ChangeMsg {
             id: id.clone(),
             user: user.clone(),
-            change_type: Some(change_msg::ChangeType::Delete(ObjectMsg {
-                dependencies: None,
-                results: None,
-                obj_data: String::from("third change").into_bytes(),
-            })),
+            change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {})),
         };
         let mut change_3_bytes = Vec::new();
         change_3.encode(&mut change_3_bytes).unwrap();

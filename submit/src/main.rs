@@ -29,11 +29,15 @@ pub type DepClient = dependencies_client::DependenciesClient<Channel>;
 mod produce;
 mod update;
 
+fn to_status<T: std::fmt::Debug>(err: T) -> Status {
+    Status::unavailable(format!("Couldn't connect to service: {:?}", err))
+}
+
 struct SubmitService {
     broker: String,
     topic: String,
-    obj_client: ObjClient,
-    dep_client: DepClient,
+    obj_url: String,
+    dep_url: String,
 }
 
 #[tonic::async_trait]
@@ -44,8 +48,12 @@ impl submit_changes_server::SubmitChanges for SubmitService {
     ) -> Result<Response<SubmitChangesOutput>, Status> {
         let msg = request.into_inner();
         info!("Submitting changes: {:?}", msg);
-        let mut obj_client = self.obj_client.clone();
-        let mut dep_client = self.dep_client.clone();
+        let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .await
+            .map_err(to_status)?;
+        let mut dep_client = dependencies_client::DependenciesClient::connect(self.dep_url.clone())
+            .await
+            .map_err(to_status)?;
         let updated = update::update_changes(
             &mut obj_client,
             &mut dep_client,
@@ -68,34 +76,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dep_url = std::env::var("DEPENDENCIES_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
-    let now = std::time::SystemTime::now();
-    while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
-        info!("Checking objects");
-        if let Ok(obj_client) = objects_client::ObjectsClient::connect(obj_url.clone()).await {
-            while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
-                info!("Checking deps");
-                if let Ok(dep_client) =
-                    dependencies_client::DependenciesClient::connect(dep_url.clone()).await
-                {
-                    let svc = submit_changes_server::SubmitChangesServer::new(SubmitService {
-                        broker,
-                        topic,
-                        obj_client,
-                        dep_client,
-                    });
+    let svc = submit_changes_server::SubmitChangesServer::new(SubmitService {
+        broker,
+        topic,
+        obj_url,
+        dep_url,
+    });
 
-                    info!("Running on {:?}", run_url);
-                    Server::builder()
-                        .add_service(svc)
-                        .serve(run_url)
-                        .await
-                        .unwrap();
-                    return Ok(());
-                }
-                std::thread::sleep(std::time::Duration::from_secs(1));
-            }
-        }
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    panic!("Couldn't connect to dependencies or objects");
+    info!("Running on {:?}", run_url);
+    Server::builder()
+        .add_service(svc)
+        .serve(run_url)
+        .await
+        .unwrap();
+    return Ok(());
 }

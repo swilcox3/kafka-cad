@@ -21,6 +21,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "futures",
+ "id_gen",
  "log",
  "prost",
  "serde_json",

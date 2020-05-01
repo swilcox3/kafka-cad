@@ -66,7 +66,9 @@ fn bbox(pt_opt_1: &Option<Point3Msg>, pt_opt_2: &Option<Point3Msg>, width: f64, 
     result
 }
 
-struct WallsService {}
+struct WallsService {
+    geom_url: String
+}
 
 #[tonic::async_trait]
 impl walls_server::Walls for WallsService {
@@ -171,7 +173,8 @@ impl walls_server::Walls for WallsService {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
-    let svc = walls_server::WallsServer::new(WallsService {});
+    let geom_url = std::env::var("GEOM_URL").unwrap().parse().unwrap();
+    let svc = walls_server::WallsServer::new(WallsService { geom_url });
 
     info!("Running on {:?}", run_url);
     Server::builder()

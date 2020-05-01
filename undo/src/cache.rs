@@ -1,5 +1,5 @@
 //! The object cache for a file maps objIDs to a list of the last X number of changes to that object.
-//! X is configurable.  
+//! X is configurable.
 
 use log::*;
 use prost::Message;
