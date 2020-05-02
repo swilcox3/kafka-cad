@@ -12,5 +12,6 @@ members = [
     "obj_defs/walls",
     "common/math",
     "common/id_gen",
-    "representations"
+    "representations",
+    "updates"
 ]

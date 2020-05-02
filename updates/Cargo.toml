@@ -1,0 +1,45 @@
+# syntax = denzp/cargo-wharf-frontend:v0.1.0-alpha.2
+[package]
+name = "updates"
+version = "0.1.0"
+authors = ["Scot Wilcox <wilcox.scot@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rdkafka = {version = "0.23.1", features = ["cmake-build"]}
+futures = "0.3.4"
+log = "0.4.8"
+env_logger = "0.7.1"
+tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
+tungstenite = "0.10.1"
+tokio-tungstenite = "0.10.1"
+futures-util = "0.3.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0.27"
+thiserror = "1.0.9"
+
+[dev-dependencies]
+tokio-macros = "0.2.4"
+uuid = {version = "0.8.1", features = ["v4"]}
+
+[package.metadata.wharf.builder]
+image = "rust:slim-buster"
+setup-commands = [
+  { command = ["rustup", "component", "add", "rustfmt"], display = "Install rustfmt" },
+  { command = ["apt-get", "update"], display = "Update apt-get"},
+  { command = ["apt-get", "install", "-y", "cmake", "make", "g++", "zlib1g-dev"], display = "Install dependencies" },
+]
+
+[[package.metadata.wharf.binary]]
+name = "updates"
+destination = "/usr/local/bin/updates"
+
+[package.metadata.wharf.output]
+image = "debian:buster-slim"
+expose = ["6000"]
+entrypoint = ["/usr/local/bin/updates"]
+
+
