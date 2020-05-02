@@ -11,9 +11,7 @@ message BeginUndoEventOutput {
 }
 
 message UndoLatestInput {
-    string file = 1;
-    string user = 2;
-    int64 offset = 3;
+    OpPrefixMsg prefix = 1;
 }
 
 message UndoLatestOutput {
@@ -21,16 +19,14 @@ message UndoLatestOutput {
 }
 
 message RedoLatestInput {
-    string file = 1;
-    string user = 2;
-    int64 offset = 3;
+    OpPrefixMsg prefix = 1;
 }
 
 message RedoLatestOutput {
     int64 offset = 1;
 }
 
-message Point3Msg {
+message Point3ApiMsg {
     double x = 1;
     double y = 2;
     double z = 3;
@@ -42,17 +38,21 @@ message OpPrefixMsg {
     int64 offset = 3;
 }
 
-message CreateWallInput {
-    OpPrefixMsg prefix = 1;
-    Point3Msg first_pt = 2;
-    Point3Msg second_pt = 3;
+message WallApiMsg {
+    Point3ApiMsg first_pt = 2;
+    Point3ApiMsg second_pt = 3;
     double width = 4;
     double height = 5;
 }
 
-message CreateWallOutput {
-    string obj_id = 1;
-    uint64 offset = 2;
+message CreateWallsInput {
+    OpPrefixMsg prefix = 1;
+    repeated WallApiMsg walls = 2;
+}
+
+message CreateWallsOutput {
+    repeated string obj_ids = 1;
+    int64 offset = 2;
 }
 
 service Api 
@@ -60,5 +60,5 @@ service Api
     rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
     rpc UndoLatest(UndoLatestInput) returns (UndoLatestOutput);
     rpc RedoLatest(RedoLatestInput) returns (RedoLatestOutput);
-    rpc CreateWall(CreateWallInput) returns (CreateWallOutput);
+    rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
 }

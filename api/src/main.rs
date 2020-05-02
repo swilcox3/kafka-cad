@@ -1,5 +1,4 @@
 use log::*;
-use serde_json::json;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
@@ -36,7 +35,28 @@ fn unavailable<T: std::fmt::Debug>(err: T) -> Status {
     Status::unavailable(format!("Couldn't connect to child service: {:?}", err))
 }
 
-fn to_point3msg(pt_opt: Option<api::Point3Msg>) -> Option<object_state::Point3Msg> {
+#[derive(Debug, Clone)]
+struct Prefix {
+    file: String,
+    user: String,
+    offset: i64,
+}
+
+impl Prefix {
+    pub fn new(prefix_opt: Option<OpPrefixMsg>) -> Result<Prefix, Status> {
+        if let Some(prefix) = prefix_opt {
+            Ok(Prefix {
+                file: prefix.file,
+                user: prefix.user,
+                offset: prefix.offset,
+            })
+        } else {
+            Err(Status::invalid_argument("Operation prefix is required"))
+        }
+    }
+}
+
+fn to_point3msg(pt_opt: Option<Point3ApiMsg>) -> Option<object_state::Point3Msg> {
     match pt_opt {
         Some(pt) => Some(object_state::Point3Msg {
             x: pt.x,
@@ -86,18 +106,19 @@ impl api_server::Api for ApiService {
             submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
                 .await
                 .map_err(unavailable)?;
+        let prefix = Prefix::new(msg.prefix)?;
         let changes = undo_client
             .undo_latest(Request::new(undo::UndoLatestInput {
-                file: msg.file.clone(),
-                user: msg.user.clone(),
+                file: prefix.file.clone(),
+                user: prefix.user.clone(),
             }))
             .await?
             .into_inner();
         let mut output = submit_client
             .submit_changes(Request::new(submit::SubmitChangesInput {
-                file: msg.file,
-                user: msg.user,
-                offset: msg.offset,
+                file: prefix.file,
+                user: prefix.user,
+                offset: prefix.offset,
                 changes: changes.changes,
             }))
             .await?
@@ -123,18 +144,19 @@ impl api_server::Api for ApiService {
             submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
                 .await
                 .map_err(unavailable)?;
+        let prefix = Prefix::new(msg.prefix)?;
         let changes = undo_client
             .redo_latest(Request::new(undo::RedoLatestInput {
-                file: msg.file.clone(),
-                user: msg.user.clone(),
+                file: prefix.file.clone(),
+                user: prefix.user.clone(),
             }))
             .await?
             .into_inner();
         let mut output = submit_client
             .submit_changes(Request::new(submit::SubmitChangesInput {
-                file: msg.file,
-                user: msg.user,
-                offset: msg.offset,
+                file: prefix.file,
+                user: prefix.user,
+                offset: prefix.offset,
                 changes: changes.changes,
             }))
             .await?
@@ -147,12 +169,12 @@ impl api_server::Api for ApiService {
         }
     }
 
-    async fn create_wall(
+    async fn create_walls(
         &self,
-        request: Request<CreateWallInput>,
-    ) -> Result<Response<CreateWallOutput>, Status> {
+        request: Request<CreateWallsInput>,
+    ) -> Result<Response<CreateWallsOutput>, Status> {
         let msg = request.into_inner();
-        info!("Create Wall: {:?}", msg);
+        info!("Create Walls: {:?}", msg);
         let mut wall_client = walls::walls_client::WallsClient::connect(self.wall_url.clone())
             .await
             .map_err(unavailable)?;
@@ -160,29 +182,47 @@ impl api_server::Api for ApiService {
             submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
                 .await
                 .map_err(unavailable)?;
-        let id = id_gen::gen_id();
-        let wall = walls::WallMsg {
-            id,
-            first_pt: to_point3msg(msg.first_pt),
-            second_pt: to_point3msg(msg.second_pt),
-            width: msg.width,
-            height: msg.height,
-        };
-        let changes = wall_client
-            .create_walls(Request::new(walls::CreateWallsInput { walls: vec![wall] }))
+        let prefix = Prefix::new(msg.prefix)?;
+        let mut walls = Vec::new();
+        let mut ids = Vec::new();
+        for wall in msg.walls {
+            let id = id_gen::gen_id();
+            ids.push(id.clone());
+            walls.push(walls::WallMsg {
+                id,
+                first_pt: to_point3msg(wall.first_pt),
+                second_pt: to_point3msg(wall.second_pt),
+                width: wall.width,
+                height: wall.height,
+            });
+        }
+        let objects = wall_client
+            .create_walls(Request::new(walls::CreateWallsInput { walls }))
             .await?
             .into_inner();
+        let mut changes = Vec::new();
+        for (obj, id) in objects.walls.into_iter().zip(ids.iter()) {
+            changes.push(object_state::ChangeMsg {
+                id: id.clone(),
+                user: prefix.user.clone(),
+                change_type: Some(object_state::change_msg::ChangeType::Add(obj)),
+            });
+        }
+
         let mut output = submit_client
             .submit_changes(Request::new(submit::SubmitChangesInput {
-                file: msg.prefix.unwrap().file,
-                user: msg.prefix.unwrap().user,
-                offset: msg.prefix.unwrap().offset,
-                changes: changes.walls,
+                file: prefix.file,
+                user: prefix.user,
+                offset: prefix.offset,
+                changes,
             }))
             .await?
             .into_inner();
         match output.offsets.pop() {
-            Some(offset) => Ok(Response::new(CreateWallOutput { offset })),
+            Some(offset) => Ok(Response::new(CreateWallsOutput {
+                obj_ids: ids,
+                offset,
+            })),
             None => Err(Status::out_of_range(
                 "No offsets received from submit service",
             )),
