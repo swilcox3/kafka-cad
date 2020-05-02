@@ -13,9 +13,14 @@ message RecalculateOutput {
 }
 
 message ClientRepresentationInput {
-    repeated object_state.ObjectMsg objects = 1;
+    object_state.ObjectMsg object = 1;
 }
 
 message ClientRepresentationOutput {
-    repeated representation.UpdateOutputMsg output = 1;
+    representation.UpdateOutputMsg output = 1;
+}
+
+service ObjDef {
+    rpc Recalculate(RecalculateInput) returns (RecalculateOutput);
+    rpc ClientRepresentation(ClientRepresentationInput) returns (ClientRepresentationOutput);
 }

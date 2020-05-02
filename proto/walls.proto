@@ -1,6 +1,5 @@
 syntax = "proto3";
 import "object_state.proto";
-import "obj_defs.proto";
 
 package walls;
 
@@ -22,6 +21,4 @@ message CreateWallsOutput {
 
 service Walls {
     rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
-    rpc Recalculate(obj_defs.RecalculateInput) returns (obj_defs.RecalculateOutput);
-    rpc ClientRepresentation(obj_defs.ClientRepresentationInput) returns (obj_defs.ClientRepresentationOutput);
 }

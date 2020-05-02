@@ -11,5 +11,6 @@ members = [
     "undo",
     "obj_defs/walls",
     "common/math",
-    "common/id_gen"
+    "common/id_gen",
+    "representations"
 ]

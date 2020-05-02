@@ -100,9 +100,10 @@ message DependenciesMsg {
 }
 
 message ObjectMsg {
-    DependenciesMsg dependencies = 1;
-    ResultsMsg results = 2;
-    bytes obj_data = 3;
+    string obj_type = 1;
+    DependenciesMsg dependencies = 2;
+    ResultsMsg results = 3;
+    bytes obj_data = 4;
 }
 
 message DeleteMsg {}

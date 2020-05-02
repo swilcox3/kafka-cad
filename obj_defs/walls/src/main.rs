@@ -1,16 +1,16 @@
 use log::*;
 use math::*;
+use serde_json::json;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
-use serde_json::json;
 
 mod walls {
-    include!(concat!(env!("OUT_DIR"), "/walls.rs"));
+    tonic::include_proto!("walls");
 }
 use walls::*;
 
 mod object_state {
-    include!(concat!(env!("OUT_DIR"), "/object_state.rs"));
+    tonic::include_proto!("object_state");
     impl OptionPoint3Msg {
         pub fn new(pt: Option<Point3Msg>) -> OptionPoint3Msg {
             OptionPoint3Msg { pt }
@@ -20,12 +20,12 @@ mod object_state {
 use object_state::*;
 
 mod representation {
-    include!(concat!(env!("OUT_DIR"), "/representation.rs"));
+    tonic::include_proto!("representation");
 }
 use representation::*;
 
 mod obj_defs {
-    include!(concat!(env!("OUT_DIR"), "/obj_defs.rs"));
+    tonic::include_proto!("obj_defs");
 }
 use obj_defs::*;
 
@@ -35,9 +35,9 @@ fn to_point3f(pt: &Point3Msg) -> Point3f {
 
 fn to_point3msg(pt: &Point3f) -> Point3Msg {
     Point3Msg {
-        x: pt.x, 
-        y: pt.y, 
-        z: pt.z
+        x: pt.x,
+        y: pt.y,
+        z: pt.z,
     }
 }
 
@@ -52,23 +52,27 @@ fn get_third_pt(pt_opt: &Option<Point3Msg>, height: f64) -> Option<Point3Msg> {
     }
 }
 
-fn bbox(pt_opt_1: &Option<Point3Msg>, pt_opt_2: &Option<Point3Msg>, width: f64, height: f64) -> Option<AxisAlignedBBoxMsg> {
+fn bbox(
+    pt_opt_1: &Option<Point3Msg>,
+    pt_opt_2: &Option<Point3Msg>,
+    width: f64,
+    height: f64,
+) -> Option<AxisAlignedBBoxMsg> {
     let mut result = None;
     if let Some(pt_1) = pt_opt_1 {
         if let Some(pt_2) = pt_opt_2 {
-            let bbox = get_axis_aligned_bound_box(&to_point3f(pt_1), &to_point3f(pt_2), width, height);
+            let bbox =
+                get_axis_aligned_bound_box(&to_point3f(pt_1), &to_point3f(pt_2), width, height);
             result = Some(AxisAlignedBBoxMsg {
                 bottom_left: Some(to_point3msg(&bbox.bottom_left)),
-                top_right: Some(to_point3msg(&bbox.top_right))
+                top_right: Some(to_point3msg(&bbox.top_right)),
             });
         }
     }
     result
 }
 
-struct WallsService {
-    geom_url: String
-}
+struct WallsService {}
 
 #[tonic::async_trait]
 impl walls_server::Walls for WallsService {
@@ -88,38 +92,42 @@ impl walls_server::Walls for WallsService {
                                 owner: Some(RefIdMsg {
                                     id: wall.id.clone(),
                                     ref_type: ref_id_msg::RefType::ProfileLine as i32,
-                                    index: 0
+                                    index: 0,
                                 }),
                                 other: Some(RefIdMsg {
                                     id: wall.id.clone(),
                                     ref_type: ref_id_msg::RefType::ProfilePoint as i32,
-                                    index: 0
+                                    index: 0,
                                 }),
-                                update_type: Some(reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg{
-                                    owner_index: 0,
-                                    other_index: 0
-                                }))
-                            })
+                                update_type: Some(reference_msg::UpdateType::Equals(
+                                    UpdateTypeEqualsMsg {
+                                        owner_index: 0,
+                                        other_index: 0,
+                                    },
+                                )),
+                            }),
                         },
                         OptionReferenceMsg {
                             reference: Some(ReferenceMsg {
                                 owner: Some(RefIdMsg {
                                     id: wall.id.clone(),
                                     ref_type: ref_id_msg::RefType::ProfileLine as i32,
-                                    index: 0
+                                    index: 0,
                                 }),
                                 other: Some(RefIdMsg {
                                     id: wall.id.clone(),
                                     ref_type: ref_id_msg::RefType::ProfilePoint as i32,
-                                    index: 1
+                                    index: 1,
                                 }),
-                                update_type: Some(reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg{
-                                    owner_index: 1,
-                                    other_index: 0
-                                }))
-                            })
+                                update_type: Some(reference_msg::UpdateType::Equals(
+                                    UpdateTypeEqualsMsg {
+                                        owner_index: 1,
+                                        other_index: 0,
+                                    },
+                                )),
+                            }),
                         },
-                    ]
+                    ],
                 }),
                 results: Some(ResultsMsg {
                     visible: true,
@@ -141,16 +149,24 @@ impl walls_server::Walls for WallsService {
                         prop_json: json!({
                             "Width": wall.width,
                             "Height": wall.height
-                        }).to_string()
-                    })
+                        })
+                        .to_string(),
+                    }),
                 }),
-                obj_data: Vec::new()
+                obj_data: Vec::new(),
             };
             results.push(output);
         }
         Ok(Response::new(CreateWallsOutput { walls: results }))
     }
+}
 
+struct ObjDefService {
+    geom_url: String,
+}
+
+#[tonic::async_trait]
+impl obj_def_server::ObjDef for ObjDefService {
     async fn recalculate(
         &self,
         request: Request<RecalculateInput>,
@@ -158,7 +174,9 @@ impl walls_server::Walls for WallsService {
         let msg = request.into_inner();
         info!("Recalculate: {:?}", msg);
         //Walls don't have any inner data to update
-        Ok(Response::new(RecalculateOutput{ objects: msg.objects }))
+        Ok(Response::new(RecalculateOutput {
+            objects: msg.objects,
+        }))
     }
 
     async fn client_representation(
@@ -174,11 +192,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
     let geom_url = std::env::var("GEOM_URL").unwrap().parse().unwrap();
-    let svc = walls_server::WallsServer::new(WallsService { geom_url });
+    let wall_svc = walls_server::WallsServer::new(WallsService {});
+    let def_svc = obj_def_server::ObjDefServer::new(ObjDefService { geom_url });
 
     info!("Running on {:?}", run_url);
     Server::builder()
-        .add_service(svc)
+        .add_service(wall_svc)
+        .add_service(def_svc)
         .serve(run_url)
         .await
         .unwrap();

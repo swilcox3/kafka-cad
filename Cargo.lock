@@ -1127,6 +1127,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "representations"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "futures",
+ "log",
+ "prost",
+ "rdkafka",
+ "thiserror",
+ "tokio",
+ "tokio-macros",
+ "tonic",
+ "tonic-build",
+ "uuid",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
