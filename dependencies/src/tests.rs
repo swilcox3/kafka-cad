@@ -76,6 +76,7 @@ fn add_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
         id,
         user: "Doesn't matter".to_string(),
         change_type: Some(ChangeType::Add(ObjectMsg {
+            obj_type: String::from("test"),
             dependencies: Some(DependenciesMsg { references }),
             results: None,
             obj_data: Vec::new(),
@@ -91,6 +92,7 @@ fn modify_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8>
         id,
         user: "Doesn't matter".to_string(),
         change_type: Some(ChangeType::Modify(ObjectMsg {
+            obj_type: String::from("test"),
             dependencies: Some(DependenciesMsg { references }),
             results: None,
             obj_data: Vec::new(),

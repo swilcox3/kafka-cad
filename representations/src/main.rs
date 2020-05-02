@@ -1,6 +1,7 @@
 use log::*;
 use thiserror::Error;
 use tonic::{Request};
+use prost::Message;
 
 mod object_state {
     tonic::include_proto!("object_state");
@@ -47,13 +48,15 @@ async fn call_service(object: ObjectMsg) -> Result<Option<UpdateOutputMsg>, Repr
     Ok(representation.output)
 }
 
-async fn representation(broker: &str, topic: &str, msg: &[u8]) -> Result<(), RepresentationError> {
+pub async fn calc_representation(broker: &str, topic: &str, file: &str, msg: &[u8]) -> Result<(), RepresentationError> {
     let change = object_state::ChangeMsg::decode(msg)?;
     if let Some(change_type) = change.change_type {
         match change_type {
             change_msg::ChangeType::Add(object) | change_msg::ChangeType::Modify(object) => {
-                let repr = call_service(object).await?;
-                submit_representations()
+                let repr_opt = call_service(object).await?;
+                if let Some(repr) = repr_opt {
+                    produce::submit_representations(broker, topic, file, repr).await?;
+                }
             }
             _ => ()
         }
@@ -68,6 +71,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let group = std::env::var("GROUP").unwrap();
     let obj_topic = std::env::var("OBJ_TOPIC").unwrap();
     let repr_topic = std::env::var("REPR_TOPIC").unwrap();
-    tokio::spawn(consume::start_consume_stream(broker, group, obj_topic));
+    tokio::spawn(consume::start_consume_stream(broker, group, obj_topic, repr_topic));
     return Ok(());
 }

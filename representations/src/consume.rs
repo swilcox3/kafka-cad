@@ -7,6 +7,8 @@ use rdkafka::message::Message;
 use crate::*;
 
 async fn handle_message<M: Message>(
+    broker: &str,
+    repr_topic: &str,
     m: &M,
 ) -> Result<(), RepresentationError> {
     let partition = m.partition();
@@ -18,13 +20,15 @@ async fn handle_message<M: Message>(
         .key()
         .ok_or(RepresentationError::FileError { partition, offset })?;
     let file = std::str::from_utf8(file_bytes)?;
+    calc_representation(broker, repr_topic, file, bytes).await?;
     Ok(())
 }
 
 async fn handle_stream(
     brokers: &str,
     group_id: &str,
-    topic: &str,
+    obj_topic: &str,
+    repr_topic: &str,
 ) -> Result<(), RepresentationError> {
     let consumer: StreamConsumer<rdkafka::consumer::DefaultConsumerContext> = ClientConfig::new()
         .set("group.id", group_id)
@@ -35,7 +39,7 @@ async fn handle_stream(
         .set_log_level(RDKafkaLogLevel::Debug)
         .create()?;
 
-    consumer.subscribe(&[topic])?;
+    consumer.subscribe(&[obj_topic])?;
 
     // consumer.start() returns a stream. The stream can be used ot chain together expensive steps,
     // such as complex computations on a thread pool or asynchronous IO.
@@ -44,7 +48,7 @@ async fn handle_stream(
     while let Some(message) = message_stream.next().await {
         match message {
             Ok(m) => {
-                if let Err(e) = handle_message(&m).await {
+                if let Err(e) = handle_message(brokers, repr_topic, &m).await {
                     error!("{}", e);
                 }
                 if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
@@ -62,10 +66,11 @@ async fn handle_stream(
 pub async fn start_consume_stream(
     brokers: String,
     group_id: String,
-    topic: String,
+    obj_topic: String,
+    repr_topic: String,
 ) {
     std::thread::sleep(std::time::Duration::from_secs(30));
-    if let Err(e) = handle_stream(&brokers, &group_id, &topic).await {
+    if let Err(e) = handle_stream(&brokers, &group_id, &obj_topic, &repr_topic).await {
         error!("{}", e);
     }
 }

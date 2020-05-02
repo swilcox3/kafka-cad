@@ -85,6 +85,7 @@ impl walls_server::Walls for WallsService {
         let mut results = Vec::new();
         for wall in &msg.walls {
             let output = ObjectMsg {
+                obj_type: String::from("walls"),
                 dependencies: Some(DependenciesMsg {
                     references: vec![
                         OptionReferenceMsg {

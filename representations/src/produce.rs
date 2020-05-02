@@ -1,11 +1,10 @@
 use super::*;
-use futures::FutureExt;
 use prost::Message;
 use rdkafka::config::ClientConfig;
 //use rdkafka::message::Message;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
-pub async fn submit_representations(brokers: &str, topic_name: &str, payload: UpdateOutputMsg) -> Vec<i64> {
+pub async fn submit_representations(brokers: &str, topic_name: &str, file: &str, msg: UpdateOutputMsg) -> Result<(), RepresentationError> {
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("message.timeout.ms", "5000")
@@ -16,22 +15,11 @@ pub async fn submit_representations(brokers: &str, topic_name: &str, payload: Up
     // for the results.
     
     let mut payload = Vec::new();
-    msg.encode(&mut payload).unwrap();
-    let key = msg.id;
+    msg.encode(&mut payload)?;
     // The send operation on the topic returns a future, that will be completed once the
     // result or failure from Kafka will be received.
     producer
-        .send(FutureRecord::to(topic_name).payload(&payload).key(&key), 0)
-        .map(move |delivery_status| {
-            debug!("Delivery status for message {} received", key);
-            delivery_status
-        })
+        .send(FutureRecord::to(topic_name).payload(&payload).key(file), 0).await.unwrap().unwrap();
 
-    // This loop will wait until all delivery statuses have been received received.
-    let mut offsets = Vec::new();
-    for future in futures {
-        let (_, offset) = future.await.unwrap().unwrap();
-        offsets.push(offset);
-    }
-    offsets
+    Ok(())
 }
