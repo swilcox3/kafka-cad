@@ -106,11 +106,59 @@ services:
         - BROKER=kafka1
         - TOPIC=ObjectState
         - RUST_LOG=info
+  geom-kernel:
+    build:
+        context: ./
+        dockerfile: geometry-kernel/geom-server-cxx/Dockerfile
   walls:
     build: 
         context: ./
         dockerfile: obj_defs/walls/Cargo.toml
     environment: 
         - RUN_URL=0.0.0.0:6000
+        - GEOM_URL=geom-kernel
         - RUST_LOG=info
+  representations:
+    build: 
+        context: ./
+        dockerfile: representations/Cargo.toml
+    depends_on: 
+        - kafka1
+    environment: 
+        - RUN_URL=0.0.0.0:6000
+        - BROKER=kafka1
+        - OBJ_TOPIC=ObjectState
+        - REPR_TOPIC=ClientRepresentation
+        - RUST_LOG=info
+  updates:
+    build: 
+        context: ./
+        dockerfile: updates/Cargo.toml
+    depends_on: 
+        - kafka1
+    environment: 
+        - RUN_URL=0.0.0.0:6000
+        - BROKER=kafka1
+        - GROUP=updatesGroup
+        - TOPIC=ClientRepresentation
+        - RUST_LOG=info
+    ports:
+      - "7000:6000"
+  api:
+    build: 
+        context: ./
+        dockerfile: api/Cargo.toml
+    depends_on: 
+      - walls
+      - submit
+      - undo
+    environment: 
+        - RUN_URL=0.0.0.0:6000
+        - BROKER=kafka1
+        - GROUP=updatesGroup
+        - TOPIC=ClientRepresentation
+        - RUST_LOG=info
+    ports:
+      - "6000:6000"
+      
   

@@ -22,6 +22,9 @@ tonic-build = "0.1.1"
 
 [package.metadata.wharf.builder]
 image = "rust:slim-buster"
+setup-commands = [
+  { command = ["rustup", "component", "add", "rustfmt"], display = "Install rustfmt" }
+]
 
 [[package.metadata.wharf.binary]]
 name = "walls"
