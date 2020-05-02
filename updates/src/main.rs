@@ -2,10 +2,10 @@ use futures_util::future::{select, Either};
 use futures_util::{SinkExt, StreamExt};
 use log::*;
 use serde::Deserialize;
-use tokio::sync::{broadcast, broadcast::Receiver};
 use tungstenite::Message;
 use anyhow::Result;
 use std::collections::HashSet;
+use async_std::sync::Receiver;
 
 mod kafka;
 
@@ -16,7 +16,7 @@ enum Commands {
 }
 
 #[derive(Debug, Clone)]
-struct UpdateMessage {
+pub struct UpdateMessage {
     file: String,
     msg: Vec<u8>
 }
@@ -27,7 +27,7 @@ async fn accept_connection(kafka_rcv: Receiver<UpdateMessage>, stream: tokio::ne
     }
 }
 
-async fn handle_connection(kafka_rcv: Receiver<UpdateMessage>, stream: tokio::net::TcpStream) -> Result<()> {
+async fn handle_connection(mut kafka_rcv: Receiver<UpdateMessage>, stream: tokio::net::TcpStream) -> Result<()> {
     let ws_stream = tokio_tungstenite::accept_async(stream).await?;
     info!("New connection");
     let (mut ws_send, mut ws_rcv) = ws_stream.split();
@@ -83,7 +83,6 @@ async fn handle_connection(kafka_rcv: Receiver<UpdateMessage>, stream: tokio::ne
                 trace!("Selected channel");
                 match channel_msg {
                     Some(ws_msg) => {
-                        let ws_msg = ws_msg?;
                         if subs.contains(&ws_msg.file) {
                             debug!("Got message from channel, passing on");
                             ws_send.send(Message::Binary(ws_msg.msg)).await?;
@@ -107,13 +106,13 @@ async fn handle_connection(kafka_rcv: Receiver<UpdateMessage>, stream: tokio::ne
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     env_logger::init();
-    let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
+    let run_url = std::env::var("RUN_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let group = std::env::var("GROUP").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
     let mut server = tokio::net::TcpListener::bind(&run_url).await.unwrap();
     info!("Listening for updates");
-    let (channel_send, channel_rcv) = broadcast::channel(100);
+    let (channel_send, channel_rcv) = async_std::sync::channel(100);
     tokio::spawn(kafka::consume(channel_send, broker, group, topic));
     while let Ok((stream, _)) = server.accept().await {
         tokio::spawn(accept_connection(channel_rcv.clone(), stream));

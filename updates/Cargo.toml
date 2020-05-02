@@ -20,13 +20,15 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0.27"
 thiserror = "1.0.9"
+#Only used for the channel, not the runtime.  Requires nightly
+async-std = {version = "1.5.0", features = ["unstable"]}
 
 [dev-dependencies]
 tokio-macros = "0.2.4"
 uuid = {version = "0.8.1", features = ["v4"]}
 
 [package.metadata.wharf.builder]
-image = "rust:slim-buster"
+image = "rust:nightly"
 setup-commands = [
   { command = ["rustup", "component", "add", "rustfmt"], display = "Install rustfmt" },
   { command = ["apt-get", "update"], display = "Update apt-get"},

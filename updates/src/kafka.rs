@@ -5,7 +5,7 @@ use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{CommitMode, Consumer};
 use rdkafka::message::Message;
 use thiserror::Error;
-use tokio::sync::broadcast::{Sender, error::SendError};
+use async_std::sync::Sender;
 use super::*;
 
 #[derive(Debug, Error)]
@@ -18,8 +18,6 @@ pub enum UpdateError {
     PayloadError { partition: i32, offset: i64 },
     #[error("Message from partition {partition} and offset {offset} has no file key set")]
     FileError { partition: i32, offset: i64 },
-    #[error("Channel error: {0}")]
-    ChannelError(#[from] SendError<UpdateMessage>)
 }
 
 async fn handle_message<M: Message>(
@@ -38,7 +36,7 @@ async fn handle_message<M: Message>(
     sender.send(UpdateMessage{
         file: String::from(file),
         msg: bytes.to_vec()
-    }).await?;
+    }).await;
     Ok(())
 }
 
