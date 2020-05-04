@@ -2,8 +2,6 @@
 
 members = [
     "api",
-    "geometry-kernel/geom-client-rs",
-    "geometry-kernel/test-geom-server",
     "objects",
     "submit",
     "dependencies",

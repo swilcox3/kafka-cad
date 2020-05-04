@@ -4,6 +4,7 @@ fn main() {
         .build_server(false)
         .compile(
             &[
+                "../proto/geom.proto",
                 "../proto/obj_defs.proto",
                 "../proto/representation.proto",
                 "../proto/object_state.proto",

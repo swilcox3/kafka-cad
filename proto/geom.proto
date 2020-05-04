@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package geom;
+
+message Point2Msg {
+    double x = 1;
+    double y = 2;
+}
+
+message Line2DMsg
+{
+    geom.Point2Msg first = 1;
+    geom.Point2Msg second = 2;
+}
+
+message Rect2DMsg
+{
+    geom.Point2Msg bottom_left = 1;
+    geom.Point2Msg top_right = 2;
+}
+
+message Arc2DMsg
+{
+    geom.Point2Msg center = 1;
+    double radius = 2;
+    double start_angle = 3;
+    double end_angle = 4;
+}
+
+message Poly2DMsg{
+    repeated geom.Point2Msg pts = 1;
+}
+
+message Point3Msg {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+}
+
+message LineMsg {
+    Point3Msg first = 1;
+    Point3Msg second = 2;
+}
+
+message PlaneMsg {
+    Point3Msg first = 1;
+    Point3Msg second = 2;
+    Point3Msg third = 3;
+}
+

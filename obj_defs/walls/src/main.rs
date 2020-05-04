@@ -4,6 +4,11 @@ use serde_json::json;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
+mod geom {
+    tonic::include_proto!("geom");
+}
+use geom::*;
+
 mod walls {
     tonic::include_proto!("walls");
 }
@@ -23,6 +28,8 @@ mod representation {
     tonic::include_proto!("representation");
 }
 use representation::*;
+
+mod repr;
 
 mod obj_defs {
     tonic::include_proto!("obj_defs");

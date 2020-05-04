@@ -7,6 +7,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use thiserror::Error;
 
+pub mod geom {
+    tonic::include_proto!("geom");
+}
+
 pub mod object_state {
     tonic::include_proto!("object_state");
 

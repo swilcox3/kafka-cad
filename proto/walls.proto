@@ -1,12 +1,13 @@
 syntax = "proto3";
+import "geom.proto";
 import "object_state.proto";
 
 package walls;
 
 message WallMsg {
     string id = 1;
-    object_state.Point3Msg first_pt = 2;
-    object_state.Point3Msg second_pt = 3;
+    geom.Point3Msg first_pt = 2;
+    geom.Point3Msg second_pt = 3;
     double width = 4;
     double height = 5;
 }

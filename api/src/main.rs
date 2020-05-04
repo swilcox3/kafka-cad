@@ -2,33 +2,37 @@ use log::*;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
+mod geom {
+    tonic::include_proto!("geom");
+}
+
 mod api {
-    include!(concat!(env!("OUT_DIR"), "/api.rs"));
+    tonic::include_proto!("api");
 }
 use api::*;
 
 mod representation {
-    include!(concat!(env!("OUT_DIR"), "/representation.rs"));
+    tonic::include_proto!("representation");
 }
 
 mod walls {
-    include!(concat!(env!("OUT_DIR"), "/walls.rs"));
+    tonic::include_proto!("walls");
 }
 
 mod object_state {
-    include!(concat!(env!("OUT_DIR"), "/object_state.rs"));
+    tonic::include_proto!("object_state");
 }
 
 mod obj_defs {
-    include!(concat!(env!("OUT_DIR"), "/obj_defs.rs"));
+    tonic::include_proto!("obj_defs");
 }
 
 mod undo {
-    include!(concat!(env!("OUT_DIR"), "/undo.rs"));
+    tonic::include_proto!("undo");
 }
 
 mod submit {
-    include!(concat!(env!("OUT_DIR"), "/submit.rs"));
+    tonic::include_proto!("submit");
 }
 
 fn unavailable<T: std::fmt::Debug>(err: T) -> Status {
@@ -53,17 +57,6 @@ impl Prefix {
         } else {
             Err(Status::invalid_argument("Operation prefix is required"))
         }
-    }
-}
-
-fn to_point3msg(pt_opt: Option<Point3ApiMsg>) -> Option<object_state::Point3Msg> {
-    match pt_opt {
-        Some(pt) => Some(object_state::Point3Msg {
-            x: pt.x,
-            y: pt.y,
-            z: pt.z,
-        }),
-        None => None,
     }
 }
 
@@ -190,8 +183,8 @@ impl api_server::Api for ApiService {
             ids.push(id.clone());
             walls.push(walls::WallMsg {
                 id,
-                first_pt: to_point3msg(wall.first_pt),
-                second_pt: to_point3msg(wall.second_pt),
+                first_pt: wall.first_pt,
+                second_pt: wall.second_pt,
                 width: wall.width,
                 height: wall.height,
             });

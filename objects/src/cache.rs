@@ -7,6 +7,10 @@ use redis::aio::MultiplexedConnection;
 use redis::AsyncCommands;
 use thiserror::Error;
 
+mod geom {
+    tonic::include_proto!("geom");
+}
+
 mod object_state {
     tonic::include_proto!("object_state");
 }

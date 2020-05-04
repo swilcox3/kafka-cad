@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "geom.proto";
 
 package api;
 
@@ -26,12 +27,6 @@ message RedoLatestOutput {
     int64 offset = 1;
 }
 
-message Point3ApiMsg {
-    double x = 1;
-    double y = 2;
-    double z = 3;
-}
-
 message OpPrefixMsg {
     string file = 1;
     string user = 2;
@@ -39,8 +34,8 @@ message OpPrefixMsg {
 }
 
 message WallApiMsg {
-    Point3ApiMsg first_pt = 2;
-    Point3ApiMsg second_pt = 3;
+    geom.Point3Msg first_pt = 2;
+    geom.Point3Msg second_pt = 3;
     double width = 4;
     double height = 5;
 }

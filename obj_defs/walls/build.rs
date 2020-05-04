@@ -1,13 +1,15 @@
 fn main() {
     tonic_build::configure()
-        .build_client(false)
+        .build_client(true)
         .build_server(true)
         .compile(
             &[
+                "../../proto/geom.proto",
                 "../../proto/walls.proto",
                 "../../proto/object_state.proto",
                 "../../proto/representation.proto",
                 "../../proto/obj_defs.proto",
+                "../../proto/geom_kernel.proto",
             ],
             &["../../proto"],
         )

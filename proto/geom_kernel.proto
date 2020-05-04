@@ -1,16 +1,11 @@
 syntax = "proto3";
+import "geom.proto";
 
 package geom_kernel;
 
-message Point3Msg {
-    double x = 1;
-    double y = 2;
-    double z = 3;
-}
-
 message MakePrismInput {
-    Point3Msg firstPt = 1;
-    Point3Msg secondPt = 2;
+    geom.Point3Msg firstPt = 1;
+    geom.Point3Msg secondPt = 2;
     double width = 3;
     double height = 4;
 }

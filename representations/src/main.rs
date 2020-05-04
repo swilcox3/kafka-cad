@@ -3,6 +3,10 @@ use prost::Message;
 use thiserror::Error;
 use tonic::Request;
 
+mod geom {
+    tonic::include_proto!("geom");
+}
+
 mod object_state {
     tonic::include_proto!("object_state");
 }

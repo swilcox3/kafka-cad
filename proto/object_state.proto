@@ -1,36 +1,20 @@
 syntax = "proto3";
+import "geom.proto";
 
 package object_state;
 
 //This defines the types that get pushed to the ObjectState Kafka topic.
 
-message Point3Msg {
-    double x = 1;
-    double y = 2;
-    double z = 3;
-}
-
 message OptionPoint3Msg {
-    Point3Msg pt = 1;
-}
-
-message LineMsg {
-    Point3Msg first = 1;
-    Point3Msg second = 2;
+    geom.Point3Msg pt = 1;
 }
 
 message OptionLineMsg {
-    LineMsg line = 1;
-}
-
-message PlaneMsg {
-    Point3Msg first = 1;
-    Point3Msg second = 2;
-    Point3Msg third = 3;
+    geom.LineMsg line = 1;
 }
 
 message OptionPlaneMsg {
-    PlaneMsg plane = 1;
+    geom.PlaneMsg plane = 1;
 }
 
 message ProfileMsg {
@@ -40,8 +24,8 @@ message ProfileMsg {
 }
 
 message AxisAlignedBBoxMsg {
-    Point3Msg bottom_left = 1;
-    Point3Msg top_right = 2;
+    geom.Point3Msg bottom_left = 1;
+    geom.Point3Msg top_right = 2;
 }
 
 message PropertiesMsg {

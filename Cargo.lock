@@ -503,19 +503,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "geom_client_rs"
-version = "0.1.0"
-dependencies = [
- "async-stream",
- "futures-core",
- "futures-util",
- "prost",
- "tokio",
- "tonic",
- "tonic-build",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1496,19 +1483,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb6bfa289a4d7c5766392812c0a1f4c1ba45afa1ad47803c11e1f407d846d75f"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "test_geom_server"
-version = "0.1.0"
-dependencies = [
- "async-stream",
- "futures-core",
- "futures-util",
- "geom_client_rs",
- "prost",
- "tokio",
- "tonic",
 ]
 
 [[package]]

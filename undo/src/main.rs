@@ -9,6 +9,10 @@ mod kafka;
 use cache::*;
 use kafka::*;
 
+mod geom {
+    tonic::include_proto!("geom");
+}
+
 mod object_state {
     tonic::include_proto!("object_state");
 }

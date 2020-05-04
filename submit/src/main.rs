@@ -2,6 +2,11 @@ use log::*;
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
 
+mod geom {
+    tonic::include_proto!("geom");
+}
+use geom::*;
+
 mod object_state {
     tonic::include_proto!("object_state");
 }

@@ -4,6 +4,7 @@ fn main() {
         .build_server(true)
         .compile(
             &[
+                "../proto/geom.proto",
                 "../proto/api.proto",
                 "../proto/walls.proto",
                 "../proto/undo.proto",

@@ -3,7 +3,11 @@ fn main() {
         .build_client(true)
         .build_server(false)
         .compile(
-            &["../proto/submit.proto", "../proto/object_state.proto"],
+            &[
+                "../proto/submit.proto",
+                "../proto/geom.proto",
+                "../proto/object_state.proto",
+            ],
             &["../proto"],
         )
         .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));
