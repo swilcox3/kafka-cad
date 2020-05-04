@@ -1,12 +1,10 @@
+use super::*;
 use futures::StreamExt;
-use log::*;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{CommitMode, Consumer};
 use rdkafka::message::Message;
 use thiserror::Error;
-use async_std::sync::Sender;
-use super::*;
 
 #[derive(Debug, Error)]
 pub enum UpdateError {
@@ -20,10 +18,7 @@ pub enum UpdateError {
     FileError { partition: i32, offset: i64 },
 }
 
-async fn handle_message<M: Message>(
-    sender: &mut Sender<UpdateMessage>,
-    m: &M,
-) -> Result<(), UpdateError> {
+async fn handle_message<M: Message>(m: &M) -> Result<(), UpdateError> {
     let partition = m.partition();
     let offset = m.offset();
     let bytes = m
@@ -33,19 +28,31 @@ async fn handle_message<M: Message>(
         .key()
         .ok_or(UpdateError::FileError { partition, offset })?;
     let file = std::str::from_utf8(file_bytes)?;
-    sender.send(UpdateMessage{
-        file: String::from(file),
-        msg: bytes.to_vec()
-    }).await;
+    if let Some(mut entry) = FILE_TO_CHANNEL_MAP.get_mut(file) {
+        let mut to_delete = Vec::new();
+        let mut index = 0usize;
+        for sender in entry.value_mut() {
+            if let Err(e) = sender
+                .sender
+                .send(UpdateMessage {
+                    file: String::from(file),
+                    msg: bytes.to_vec(),
+                })
+                .await
+            {
+                error!("Channel error: {:?}", e);
+                to_delete.push(index);
+            }
+            index += 1;
+        }
+        for index in to_delete.into_iter().rev() {
+            entry.value_mut().remove(index);
+        }
+    }
     Ok(())
 }
 
-async fn handle_stream(
-    sender: &mut Sender<UpdateMessage>,
-    brokers: &str,
-    group_id: &str,
-    topic: &str,
-) -> Result<(), UpdateError> {
+async fn handle_stream(brokers: &str, group_id: &str, topic: &str) -> Result<(), UpdateError> {
     let consumer: StreamConsumer<rdkafka::consumer::DefaultConsumerContext> = ClientConfig::new()
         .set("group.id", group_id)
         .set("bootstrap.servers", brokers)
@@ -64,7 +71,7 @@ async fn handle_stream(
     while let Some(message) = message_stream.next().await {
         match message {
             Ok(m) => {
-                if let Err(e) = handle_message(sender, &m).await {
+                if let Err(e) = handle_message(&m).await {
                     error!("{}", e);
                 }
                 if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
@@ -79,14 +86,9 @@ async fn handle_stream(
     Ok(())
 }
 
-pub async fn consume(
-    mut sender: Sender<UpdateMessage>,
-    brokers: String,
-    group_id: String,
-    topic: String,
-) {
+pub async fn consume(brokers: String, group_id: String, topic: String) {
     std::thread::sleep(std::time::Duration::from_secs(30));
-    if let Err(e) = handle_stream(&mut sender, &brokers, &group_id, &topic).await {
+    if let Err(e) = handle_stream(&brokers, &group_id, &topic).await {
         error!("{}", e);
     }
 }

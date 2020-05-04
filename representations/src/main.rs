@@ -1,7 +1,7 @@
 use log::*;
-use thiserror::Error;
-use tonic::{Request};
 use prost::Message;
+use thiserror::Error;
+use tonic::Request;
 
 mod object_state {
     tonic::include_proto!("object_state");
@@ -34,7 +34,7 @@ pub enum RepresentationError {
     #[error("Transport error: {0}")]
     TransportError(#[from] tonic::transport::Error),
     #[error("Service error: {0}")]
-    ServiceError (#[from] tonic::Status),
+    ServiceError(#[from] tonic::Status),
     #[error("Prost encode error: {0}")]
     ProstEncodeError(#[from] prost::EncodeError),
     #[error("Prost decode error: {0}")]
@@ -44,11 +44,21 @@ pub enum RepresentationError {
 async fn call_service(object: ObjectMsg) -> Result<Option<UpdateOutputMsg>, RepresentationError> {
     let url = object.obj_type.clone();
     let mut client = obj_defs::obj_def_client::ObjDefClient::connect(url).await?;
-    let representation = client.client_representation(Request::new(ClientRepresentationInput{ object: Some(object) })).await?.into_inner();
+    let representation = client
+        .client_representation(Request::new(ClientRepresentationInput {
+            object: Some(object),
+        }))
+        .await?
+        .into_inner();
     Ok(representation.output)
 }
 
-pub async fn calc_representation(broker: &str, topic: &str, file: &str, msg: &[u8]) -> Result<(), RepresentationError> {
+pub async fn calc_representation(
+    broker: &str,
+    topic: &str,
+    file: &str,
+    msg: &[u8],
+) -> Result<(), RepresentationError> {
     let change = object_state::ChangeMsg::decode(msg)?;
     if let Some(change_type) = change.change_type {
         match change_type {
@@ -58,7 +68,7 @@ pub async fn calc_representation(broker: &str, topic: &str, file: &str, msg: &[u
                     produce::submit_representations(broker, topic, file, repr).await?;
                 }
             }
-            _ => ()
+            _ => (),
         }
     }
     Ok(())
@@ -71,6 +81,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let group = std::env::var("GROUP").unwrap();
     let obj_topic = std::env::var("OBJ_TOPIC").unwrap();
     let repr_topic = std::env::var("REPR_TOPIC").unwrap();
-    tokio::spawn(consume::start_consume_stream(broker, group, obj_topic, repr_topic));
+    consume::start_consume_stream(broker, group, obj_topic, repr_topic).await;
     return Ok(());
 }

@@ -92,6 +92,12 @@ services:
         - BROKER=kafka1
         - TOPIC=ObjectState
         - RUST_LOG=info
+  redis-undo:
+    image: "redis:alpine"
+    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
+    restart: always
+    ports:
+      - "6379"
   undo:
     build: 
         context: ./
@@ -102,8 +108,10 @@ services:
         - kafka1
     environment: 
         - RUN_URL=0.0.0.0:6000
+        - REDIS_URL=redis://redis-undo:6379
         - OBJECTS_URL=http://objects
         - BROKER=kafka1
+        - GROUP=undoGroup
         - TOPIC=ObjectState
         - RUST_LOG=info
   geom-kernel:
@@ -125,8 +133,8 @@ services:
     depends_on: 
         - kafka1
     environment: 
-        - RUN_URL=0.0.0.0:6000
         - BROKER=kafka1
+        - GROUP=reprGroup
         - OBJ_TOPIC=ObjectState
         - REPR_TOPIC=ClientRepresentation
         - RUST_LOG=info
@@ -154,9 +162,9 @@ services:
       - undo
     environment: 
         - RUN_URL=0.0.0.0:6000
-        - BROKER=kafka1
-        - GROUP=updatesGroup
-        - TOPIC=ClientRepresentation
+        - UNDO_URL=undo
+        - WALL_URL=walls
+        - SUBMIT_URL=submit
         - RUST_LOG=info
     ports:
       - "6000:6000"

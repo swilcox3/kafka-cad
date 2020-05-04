@@ -1,39 +1,49 @@
+use anyhow::Result;
+use dashmap::DashMap;
 use futures_util::future::{select, Either};
 use futures_util::{SinkExt, StreamExt};
+use lazy_static::lazy_static;
 use log::*;
 use serde::Deserialize;
+use tokio::sync::{mpsc, mpsc::Sender};
 use tungstenite::Message;
-use anyhow::Result;
-use std::collections::HashSet;
-use async_std::sync::Receiver;
 
 mod kafka;
-
-#[derive(Deserialize)]
-enum Commands {
-    Subscribe(String),
-    Unsubscribe(String),
-}
 
 #[derive(Debug, Clone)]
 pub struct UpdateMessage {
     file: String,
-    msg: Vec<u8>
+    msg: Vec<u8>,
 }
 
-async fn accept_connection(kafka_rcv: Receiver<UpdateMessage>, stream: tokio::net::TcpStream) {
-    if let Err(e) = handle_connection(kafka_rcv, stream).await {
+pub struct ChannelSend {
+    sender: Sender<UpdateMessage>,
+    user: String,
+}
+
+lazy_static! {
+    pub static ref FILE_TO_CHANNEL_MAP: DashMap<String, Vec<ChannelSend>> = DashMap::default();
+}
+
+#[derive(Deserialize)]
+enum Commands {
+    Subscribe { filename: String, user: String },
+    Unsubscribe { filename: String, user: String },
+}
+
+async fn accept_connection(stream: tokio::net::TcpStream) {
+    if let Err(e) = handle_connection(stream).await {
         error!("{:?}", e);
     }
 }
 
-async fn handle_connection(mut kafka_rcv: Receiver<UpdateMessage>, stream: tokio::net::TcpStream) -> Result<()> {
+async fn handle_connection(stream: tokio::net::TcpStream) -> Result<()> {
     let ws_stream = tokio_tungstenite::accept_async(stream).await?;
     info!("New connection");
     let (mut ws_send, mut ws_rcv) = ws_stream.split();
-    let mut channel_fut = kafka_rcv.next();
+    let (channel_send, mut channel_rcv) = mpsc::channel(100);
+    let mut channel_fut = channel_rcv.next();
     let mut ws_fut = ws_rcv.next();
-    let mut subs = HashSet::new();
     loop {
         trace!("Going to select");
         match select(ws_fut, channel_fut).await {
@@ -56,15 +66,37 @@ async fn handle_connection(mut kafka_rcv: Receiver<UpdateMessage>, stream: tokio
                                 break;
                             }
                             Message::Text(sub_msg) => match serde_json::from_str(&sub_msg) {
-                                Ok(Commands::Subscribe(filename)) => {
+                                Ok(Commands::Subscribe { filename, user }) => {
                                     info!("New subscribe cmd for {:?}", filename);
-                                    subs.insert(filename);
+                                    let send = ChannelSend {
+                                        sender: channel_send.clone(),
+                                        user: user,
+                                    };
+                                    match FILE_TO_CHANNEL_MAP.get_mut(&filename) {
+                                        Some(mut entry) => {
+                                            entry.value_mut().push(send);
+                                        }
+                                        None => {
+                                            FILE_TO_CHANNEL_MAP.insert(filename, vec![send]);
+                                        }
+                                    }
                                 }
-                                Ok(Commands::Unsubscribe(filename)) => {
+                                Ok(Commands::Unsubscribe { filename, user }) => {
                                     info!("New unsubscribe cmd for {:?}", filename);
-                                    subs.remove(&filename);
+                                    if let Some(mut entry) = FILE_TO_CHANNEL_MAP.get_mut(&filename)
+                                    {
+                                        let senders = entry.value_mut();
+                                        let mut index = 0usize;
+                                        for send in senders.iter() {
+                                            if send.user == user {
+                                                senders.remove(index);
+                                                break;
+                                            }
+                                            index += 1;
+                                        }
+                                    }
                                 }
-                                Err(e) => error!("Invalid JSON: {:?}", e)
+                                Err(e) => error!("Invalid JSON: {:?}", e),
                             },
                             _ => {
                                 error!("Unexpected message {:?} received from client", msg);
@@ -83,10 +115,8 @@ async fn handle_connection(mut kafka_rcv: Receiver<UpdateMessage>, stream: tokio
                 trace!("Selected channel");
                 match channel_msg {
                     Some(ws_msg) => {
-                        if subs.contains(&ws_msg.file) {
-                            debug!("Got message from channel, passing on");
-                            ws_send.send(Message::Binary(ws_msg.msg)).await?;
-                        }
+                        debug!("Got message from channel, passing on");
+                        ws_send.send(Message::Binary(ws_msg.msg)).await?;
                     }
                     None => {
                         debug!("Got None, breaking");
@@ -94,7 +124,7 @@ async fn handle_connection(mut kafka_rcv: Receiver<UpdateMessage>, stream: tokio
                     }
                 }
                 ws_fut = ws_fut_continue;
-                channel_fut = kafka_rcv.next();
+                channel_fut = channel_rcv.next();
             }
         }
     }
@@ -112,10 +142,9 @@ async fn main() -> Result<(), std::io::Error> {
     let topic = std::env::var("TOPIC").unwrap();
     let mut server = tokio::net::TcpListener::bind(&run_url).await.unwrap();
     info!("Listening for updates");
-    let (channel_send, channel_rcv) = async_std::sync::channel(100);
-    tokio::spawn(kafka::consume(channel_send, broker, group, topic));
+    tokio::spawn(kafka::consume(broker, group, topic));
     while let Ok((stream, _)) = server.accept().await {
-        tokio::spawn(accept_connection(channel_rcv.clone(), stream));
+        tokio::spawn(accept_connection(stream));
     }
     Ok(())
 }
