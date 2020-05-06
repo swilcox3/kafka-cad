@@ -10,6 +10,8 @@ members = [
     "obj_defs/walls",
     "common/math",
     "common/id_gen",
+    "common/object_state",
+    "common/geom",
     "representations",
     "updates"
 ]

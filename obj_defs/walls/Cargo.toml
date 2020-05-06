@@ -15,7 +15,10 @@ tonic = "0.1.1"
 futures = "0.3.4"
 tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
 math = { path = "../../common/math" }
+object_state = {path = "../../common/object_state"}
+geom = {path = "../../common/geom"}
 serde_json = "1.0.52"
+serde = {version = "1.0.104", features = ["derive"]}
 
 [build-dependencies]
 tonic-build = "0.1.1"

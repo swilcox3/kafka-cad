@@ -84,7 +84,7 @@ message DependenciesMsg {
 }
 
 message ObjectMsg {
-    string obj_type = 1;
+    string obj_url = 1;
     DependenciesMsg dependencies = 2;
     ResultsMsg results = 3;
     bytes obj_data = 4;

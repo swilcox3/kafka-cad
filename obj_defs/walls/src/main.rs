@@ -1,13 +1,11 @@
+use geom::*;
 use log::*;
 use math::*;
+use object_state::*;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
-
-mod geom {
-    tonic::include_proto!("geom");
-}
-use geom::*;
 
 mod geom_kernel {
     tonic::include_proto!("geom_kernel");
@@ -18,16 +16,6 @@ mod walls {
     tonic::include_proto!("walls");
 }
 use walls::*;
-
-mod object_state {
-    tonic::include_proto!("object_state");
-    impl OptionPoint3Msg {
-        pub fn new(pt: Option<crate::geom::Point3Msg>) -> OptionPoint3Msg {
-            OptionPoint3Msg { pt }
-        }
-    }
-}
-use object_state::*;
 
 mod representation {
     tonic::include_proto!("representation");
@@ -84,6 +72,14 @@ fn bbox(
     result
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct WallProps {
+    #[serde(rename = "Width")]
+    pub width: f64,
+    #[serde(rename = "Height")]
+    pub height: f64,
+}
+
 struct WallsService {}
 
 #[tonic::async_trait]
@@ -97,7 +93,7 @@ impl walls_server::Walls for WallsService {
         let mut results = Vec::new();
         for wall in &msg.walls {
             let output = ObjectMsg {
-                obj_type: String::from("walls"),
+                obj_url: String::from("walls"),
                 dependencies: Some(DependenciesMsg {
                     references: vec![
                         OptionReferenceMsg {
@@ -159,11 +155,11 @@ impl walls_server::Walls for WallsService {
                     }),
                     bbox: bbox(&wall.first_pt, &wall.second_pt, wall.width, wall.height),
                     properties: Some(PropertiesMsg {
-                        prop_json: json!({
-                            "Width": wall.width,
-                            "Height": wall.height
+                        prop_json: serde_json::to_string(&WallProps {
+                            width: wall.width,
+                            height: wall.height,
                         })
-                        .to_string(),
+                        .unwrap(),
                     }),
                 }),
                 obj_data: Vec::new(),
@@ -199,51 +195,35 @@ impl obj_def_server::ObjDef for ObjDefService {
         let msg = request.into_inner();
         info!("Client representation: {:?}", msg);
         if let Some(object) = msg.object {
-            if let Some(results) = object.results {
-                if let Some(profile) = results.profile {
-                    if let Some(first_pt_opt) = profile.points.get(0) {
-                        if let Some(first_pt) = first_pt_opt.pt {
-                            if let Some(second_pt_opt) = profile.points.get(1) {
-                                if let Some(second_pt) = second_pt_opt.pt {
-                                    if let Some(props) = results.properties {
-                                        match serde_json::from_str(&props.prop_json) {
-                                            Ok(serde_json::Value::Object(prop_json)) => {
-                                                if let Some(width_val) = prop_json.get("Width") {
-                                                    if let Some(height_val) =
-                                                        prop_json.get("Height")
-                                                    {
-                                                        if let Some(width) = width_val.as_f64() {
-                                                            if let Some(height) =
-                                                                height_val.as_f64()
-                                                            {
-                                                                let mut geom_client = geom_kernel_client::GeomKernelClient::connect(self.geom_url).await?;
-                                                                let mesh_data =
-                                                                    repr::get_triangles(
-                                                                        &mut geom_client,
-                                                                        first_pt,
-                                                                        second_pt,
-                                                                        width,
-                                                                        height,
-                                                                    )
-                                                                    .await?;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            Err(e) => error!("props is not valid JSON: {:?}", e),
-                                            _ => (),
-                                        }
-                                    }
-                                }
+            if let Some(first_pt) = object.get_profile_pt(0) {
+                if let Some(second_pt) = object.get_profile_pt(1) {
+                    match object.get_properties() {
+                        Ok(Some(prop_json)) => match serde_json::from_value(prop_json) {
+                            Ok(props) => {
+                                let mut geom_client =
+                                    geometry_kernel_client::GeometryKernelClient::connect(
+                                        self.geom_url,
+                                    )
+                                    .await?;
+                                let mesh_data = repr::get_triangles(
+                                    &mut geom_client,
+                                    first_pt.clone(),
+                                    second_pt.clone(),
+                                    props.width,
+                                    props.height,
+                                )
+                                .await?;
                             }
-                        }
+                            Err(e) => error!("Properties in wrong format: {:?}", e),
+                        },
+                        Err(e) => error!("props is not valid JSON: {:?}", e),
+                        _ => (),
                     }
                 }
             }
         }
+        Err(tonic::Status::unimplemented("Not done yet"))
     }
-    unimplemented!();
 }
 
 #[tokio::main]
