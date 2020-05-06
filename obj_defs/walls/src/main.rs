@@ -9,6 +9,11 @@ mod geom {
 }
 use geom::*;
 
+mod geom_kernel {
+    tonic::include_proto!("geom_kernel");
+}
+use geom_kernel::*;
+
 mod walls {
     tonic::include_proto!("walls");
 }
@@ -17,7 +22,7 @@ use walls::*;
 mod object_state {
     tonic::include_proto!("object_state");
     impl OptionPoint3Msg {
-        pub fn new(pt: Option<Point3Msg>) -> OptionPoint3Msg {
+        pub fn new(pt: Option<crate::geom::Point3Msg>) -> OptionPoint3Msg {
             OptionPoint3Msg { pt }
         }
     }
@@ -191,8 +196,54 @@ impl obj_def_server::ObjDef for ObjDefService {
         &self,
         request: Request<ClientRepresentationInput>,
     ) -> Result<Response<ClientRepresentationOutput>, Status> {
-        unimplemented!();
+        let msg = request.into_inner();
+        info!("Client representation: {:?}", msg);
+        if let Some(object) = msg.object {
+            if let Some(results) = object.results {
+                if let Some(profile) = results.profile {
+                    if let Some(first_pt_opt) = profile.points.get(0) {
+                        if let Some(first_pt) = first_pt_opt.pt {
+                            if let Some(second_pt_opt) = profile.points.get(1) {
+                                if let Some(second_pt) = second_pt_opt.pt {
+                                    if let Some(props) = results.properties {
+                                        match serde_json::from_str(&props.prop_json) {
+                                            Ok(serde_json::Value::Object(prop_json)) => {
+                                                if let Some(width_val) = prop_json.get("Width") {
+                                                    if let Some(height_val) =
+                                                        prop_json.get("Height")
+                                                    {
+                                                        if let Some(width) = width_val.as_f64() {
+                                                            if let Some(height) =
+                                                                height_val.as_f64()
+                                                            {
+                                                                let mut geom_client = geom_kernel_client::GeomKernelClient::connect(self.geom_url).await?;
+                                                                let mesh_data =
+                                                                    repr::get_triangles(
+                                                                        &mut geom_client,
+                                                                        first_pt,
+                                                                        second_pt,
+                                                                        width,
+                                                                        height,
+                                                                    )
+                                                                    .await?;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => error!("props is not valid JSON: {:?}", e),
+                                            _ => (),
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
+    unimplemented!();
 }
 
 #[tokio::main]
