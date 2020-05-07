@@ -3,7 +3,7 @@ use log::*;
 use math::*;
 use object_state::*;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use thiserror::Error;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
@@ -23,6 +23,8 @@ mod representation {
 use representation::*;
 
 mod repr;
+mod wall;
+use wall::*;
 
 mod obj_defs {
     tonic::include_proto!("obj_defs");
@@ -38,17 +40,6 @@ fn to_point3msg(pt: &Point3f) -> Point3Msg {
         x: pt.x,
         y: pt.y,
         z: pt.z,
-    }
-}
-
-fn get_third_pt(pt_opt: &Option<Point3Msg>, height: f64) -> Option<Point3Msg> {
-    match pt_opt {
-        Some(pt) => Some(Point3Msg {
-            x: pt.x,
-            y: pt.y,
-            z: pt.z + height,
-        }),
-        None => None,
     }
 }
 
@@ -72,12 +63,34 @@ fn bbox(
     result
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct WallProps {
-    #[serde(rename = "Width")]
-    pub width: f64,
-    #[serde(rename = "Height")]
-    pub height: f64,
+#[derive(Debug, Error)]
+pub enum WallError {
+    #[error("Couldn't connect to geom kernel: {0}")]
+    ConnectError(#[from] tonic::transport::Error),
+    #[error("{0}")]
+    StatusError(#[from] tonic::Status),
+    #[error("JSON error: {0}")]
+    JSONError(#[from] serde_json::Error),
+    #[error("Missing arguments")]
+    InvalidArgs,
+}
+
+impl Into<tonic::Status> for WallError {
+    fn into(self) -> tonic::Status {
+        let msg = format!("{}", self);
+        let code = match self {
+            WallError::JSONError(..) => tonic::Code::Internal,
+            WallError::StatusError(status) => status.code(),
+            WallError::ConnectError(..) => tonic::Code::Unavailable,
+            WallError::InvalidArgs => tonic::Code::InvalidArgument,
+        };
+        tonic::Status::new(code, msg)
+    }
+}
+
+pub fn to_status<T: Into<WallError>>(err: T) -> tonic::Status {
+    let repr_error: WallError = err.into();
+    repr_error.into()
 }
 
 struct WallsService {}
@@ -180,9 +193,20 @@ impl obj_def_server::ObjDef for ObjDefService {
         &self,
         request: Request<RecalculateInput>,
     ) -> Result<Response<RecalculateOutput>, Status> {
-        let msg = request.into_inner();
+        let mut msg = request.into_inner();
         info!("Recalculate: {:?}", msg);
-        //Walls don't have any inner data to update
+        for obj in &mut msg.objects {
+            let wall = Wall::from_obj_msg(&obj).map_err(to_status)?;
+            if let Some(bbox_msg) = obj.get_bbox_mut() {
+                *bbox_msg = bbox(
+                    &Some(wall.first_pt),
+                    &Some(wall.second_pt),
+                    wall.width,
+                    wall.height,
+                )
+                .unwrap();
+            }
+        }
         Ok(Response::new(RecalculateOutput {
             objects: msg.objects,
         }))
@@ -193,36 +217,16 @@ impl obj_def_server::ObjDef for ObjDefService {
         request: Request<ClientRepresentationInput>,
     ) -> Result<Response<ClientRepresentationOutput>, Status> {
         let msg = request.into_inner();
+        let mut output = None;
         info!("Client representation: {:?}", msg);
         if let Some(object) = msg.object {
-            if let Some(first_pt) = object.get_profile_pt(0) {
-                if let Some(second_pt) = object.get_profile_pt(1) {
-                    match object.get_properties() {
-                        Ok(Some(prop_json)) => match serde_json::from_value(prop_json) {
-                            Ok(props) => {
-                                let mut geom_client =
-                                    geometry_kernel_client::GeometryKernelClient::connect(
-                                        self.geom_url,
-                                    )
-                                    .await?;
-                                let mesh_data = repr::get_triangles(
-                                    &mut geom_client,
-                                    first_pt.clone(),
-                                    second_pt.clone(),
-                                    props.width,
-                                    props.height,
-                                )
-                                .await?;
-                            }
-                            Err(e) => error!("Properties in wrong format: {:?}", e),
-                        },
-                        Err(e) => error!("props is not valid JSON: {:?}", e),
-                        _ => (),
-                    }
-                }
-            }
+            let wall = Wall::from_obj_msg(&object).map_err(to_status)?;
+            let results = repr::get_repr(self.geom_url.clone(), wall)
+                .await
+                .map_err(to_status)?;
+            output = Some(results);
         }
-        Err(tonic::Status::unimplemented("Not done yet"))
+        Ok(Response::new(ClientRepresentationOutput { output }))
     }
 }
 

@@ -46,7 +46,7 @@ pub enum RepresentationError {
 }
 
 async fn call_service(object: ObjectMsg) -> Result<Option<UpdateOutputMsg>, RepresentationError> {
-    let url = object.obj_type.clone();
+    let url = object.obj_url.clone();
     let mut client = obj_defs::obj_def_client::ObjDefClient::connect(url).await?;
     let representation = client
         .client_representation(Request::new(ClientRepresentationInput {

@@ -184,7 +184,7 @@ mod tests {
             id: id.clone(),
             user: user.clone(),
             change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
-                obj_type: String::from("test"),
+                obj_url: String::from("test"),
                 dependencies: None,
                 results: None,
                 obj_data: vec![],
@@ -205,7 +205,7 @@ mod tests {
             id: id.clone(),
             user: user.clone(),
             change_type: Some(change_msg::ChangeType::Modify(ObjectMsg {
-                obj_type: String::from("test"),
+                obj_url: String::from("test"),
                 dependencies: None,
                 results: None,
                 obj_data: String::from("modified").into_bytes(),

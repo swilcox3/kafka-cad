@@ -71,6 +71,26 @@ mod object_state {
             }
             result
         }
+
+        pub fn get_bbox(&self) -> Option<&AxisAlignedBBoxMsg> {
+            let mut result = None;
+            if let Some(results) = &self.results {
+                if let Some(bbox) = &results.bbox {
+                    result = Some(bbox)
+                }
+            }
+            result
+        }
+
+        pub fn get_bbox_mut(&mut self) -> Option<&mut AxisAlignedBBoxMsg> {
+            let mut result = None;
+            if let Some(results) = &mut self.results {
+                if let Some(bbox) = &mut results.bbox {
+                    result = Some(bbox)
+                }
+            }
+            result
+        }
     }
 }
 
