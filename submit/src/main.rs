@@ -1,15 +1,8 @@
+use geom::*;
 use log::*;
+use object_state::*;
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
-
-mod geom {
-    tonic::include_proto!("geom");
-}
-use geom::*;
-
-mod object_state {
-    tonic::include_proto!("object_state");
-}
 
 mod objects {
     tonic::include_proto!("objects");
@@ -19,12 +12,20 @@ mod dependencies {
     tonic::include_proto!("dependencies");
 }
 
+mod representation {
+    tonic::include_proto!("representation");
+}
+
 mod submit {
     tonic::include_proto!("submit");
 }
 
+mod obj_defs {
+    tonic::include_proto!("obj_defs");
+}
+
 use dependencies::*;
-use object_state::*;
+use obj_defs::*;
 use objects::*;
 use submit::*;
 

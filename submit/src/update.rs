@@ -229,7 +229,7 @@ fn delete_ref(owner_obj: &mut ObjectMsg, refer: &ReferenceMsg) {
     }
 }
 
-fn get_object<'a>(change: &'a ChangeMsg) -> Option<&'a ObjectMsg> {
+fn get_object(change: &ChangeMsg) -> Option<&ObjectMsg> {
     let mut result = None;
     if let Some(change_type) = &change.change_type {
         match change_type {
@@ -242,7 +242,7 @@ fn get_object<'a>(change: &'a ChangeMsg) -> Option<&'a ObjectMsg> {
     result
 }
 
-fn get_object_mut<'a>(change: &'a mut ChangeMsg) -> Option<&'a mut ObjectMsg> {
+fn get_object_mut(change: &mut ChangeMsg) -> Option<&mut ObjectMsg> {
     let mut result = None;
     if let Some(change_type) = &mut change.change_type {
         match change_type {
@@ -305,6 +305,32 @@ fn update(refers: &Vec<ReferenceMsg>, objects: &mut HashMap<String, ChangeMsg>) 
                 }
             }
         }
+    }
+}
+
+async fn recalculate_obj(object: &ObjectMsg) -> Result<ObjectMsg, Status> {
+    let url = object.obj_url.clone();
+    let mut client = obj_defs::obj_def_client::ObjDefClient::connect(url)
+        .await
+        .map_err(|e| {
+            Status::new(
+                tonic::Code::Unavailable,
+                format!("Couldn't connect to object service: {:?}", e),
+            )
+        })?;
+    let mut recalc = client
+        .recalculate(Request::new(RecalculateInput {
+            objects: vec![object.clone()],
+        }))
+        .await?
+        .into_inner();
+    if let Some(obj) = recalc.objects.pop() {
+        Ok(obj)
+    } else {
+        Err(Status::new(
+            tonic::Code::NotFound,
+            "Recalculate didn't return an object",
+        ))
     }
 }
 
