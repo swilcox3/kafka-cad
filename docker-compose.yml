@@ -118,10 +118,10 @@ services:
     build:
         context: ./
         dockerfile: geometry-kernel/geom-server-cxx/Dockerfile
-  walls:
+  operations:
     build: 
         context: ./
-        dockerfile: obj_defs/walls/Cargo.toml
+        dockerfile: operations/Cargo.toml
     environment: 
         - RUN_URL=0.0.0.0:6000
         - GEOM_URL=geom-kernel
@@ -157,13 +157,13 @@ services:
         context: ./
         dockerfile: api/Cargo.toml
     depends_on: 
-      - walls
       - submit
+      - operations
       - undo
     environment: 
         - RUN_URL=0.0.0.0:6000
         - UNDO_URL=undo
-        - WALL_URL=walls
+        - OPS_URL=operations
         - SUBMIT_URL=submit
         - RUST_LOG=info
     ports:

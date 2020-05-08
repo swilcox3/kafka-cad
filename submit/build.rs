@@ -10,7 +10,6 @@ fn main() {
                 "../proto/objects.proto",
                 "../proto/dependencies.proto",
                 "../proto/representation.proto",
-                "../proto/obj_defs.proto",
                 "../proto/submit.proto",
             ],
             &["../proto"],

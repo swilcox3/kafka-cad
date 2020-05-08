@@ -20,12 +20,7 @@ mod submit {
     tonic::include_proto!("submit");
 }
 
-mod obj_defs {
-    tonic::include_proto!("obj_defs");
-}
-
 use dependencies::*;
-use obj_defs::*;
 use objects::*;
 use submit::*;
 

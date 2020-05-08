@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package operations;
+
+import "geom.proto";
+import "object_state.proto";
+import "representation.proto";
+
+message WallMsg {
+    string id = 1;
+    geom.Point3Msg first_pt = 2;
+    geom.Point3Msg second_pt = 3;
+    double width = 4;
+    double height = 5;
+}
+
+message CreateWallsInput {
+    repeated WallMsg walls = 1;
+}
+
+message CreateWallsOutput {
+    repeated object_state.ObjectMsg walls = 1;
+}
+
+message UpdateObjectsInput {
+    //This is a traversal of the dependency graph, it tells us the order in which to update
+    repeated object_state.ReferenceMsg obj_refs = 1;
+    //The objects pointed to in obj_refs
+    repeated object_state.ChangeMsg objects = 2;
+}
+
+message UpdateObjectsOutput {
+    repeated object_state.ChangeMsg objects = 1;
+}
+
+message ClientRepresentationInput {
+    object_state.ObjectMsg object = 1;
+}
+
+message ClientRepresentationOutput {
+    representation.UpdateOutputMsg output = 1;
+}
+
+service Operations {
+    rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
+    rpc UpdateObjects(UpdateObjectsInput) returns (UpdateObjectsOutput);
+    rpc ClientRepresentation(ClientRepresentationInput) returns (ClientRepresentationOutput);
+}

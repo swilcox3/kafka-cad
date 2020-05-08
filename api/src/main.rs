@@ -2,10 +2,6 @@ use log::*;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
-mod geom {
-    tonic::include_proto!("geom");
-}
-
 mod api {
     tonic::include_proto!("api");
 }
@@ -15,16 +11,8 @@ mod representation {
     tonic::include_proto!("representation");
 }
 
-mod walls {
-    tonic::include_proto!("walls");
-}
-
-mod object_state {
-    tonic::include_proto!("object_state");
-}
-
-mod obj_defs {
-    tonic::include_proto!("obj_defs");
+mod operations {
+    tonic::include_proto!("operations");
 }
 
 mod undo {
@@ -62,7 +50,7 @@ impl Prefix {
 
 struct ApiService {
     undo_url: String,
-    wall_url: String,
+    ops_url: String,
     submit_url: String,
 }
 
@@ -168,9 +156,10 @@ impl api_server::Api for ApiService {
     ) -> Result<Response<CreateWallsOutput>, Status> {
         let msg = request.into_inner();
         info!("Create Walls: {:?}", msg);
-        let mut wall_client = walls::walls_client::WallsClient::connect(self.wall_url.clone())
-            .await
-            .map_err(unavailable)?;
+        let mut ops_client =
+            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
+                .await
+                .map_err(unavailable)?;
         let mut submit_client =
             submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
                 .await
@@ -189,8 +178,8 @@ impl api_server::Api for ApiService {
                 height: wall.height,
             });
         }
-        let objects = wall_client
-            .create_walls(Request::new(walls::CreateWallsInput { walls }))
+        let objects = ops_client
+            .create_walls(Request::new(operations::CreateWallsInput { walls }))
             .await?
             .into_inner();
         let mut changes = Vec::new();
@@ -228,11 +217,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
     let undo_url = std::env::var("UNDO_URL").unwrap().parse().unwrap();
-    let wall_url = std::env::var("WALL_URL").unwrap().parse().unwrap();
+    let ops_url = std::env::var("OPS_URL").unwrap().parse().unwrap();
     let submit_url = std::env::var("SUBMIT_URL").unwrap().parse().unwrap();
     let svc = api_server::ApiServer::new(ApiService {
         undo_url,
-        wall_url,
+        ops_url,
         submit_url,
     });
 

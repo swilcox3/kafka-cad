@@ -6,12 +6,11 @@ fn main() {
         .extern_path(".object_state", "::object_state")
         .compile(
             &[
-                "../../proto/walls.proto",
-                "../../proto/representation.proto",
-                "../../proto/obj_defs.proto",
-                "../../proto/geom_kernel.proto",
+                "../proto/operations.proto",
+                "../proto/representation.proto",
+                "../proto/geom_kernel.proto",
             ],
-            &["../../proto"],
+            &["../proto"],
         )
         .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));
 }

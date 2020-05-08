@@ -54,25 +54,9 @@ message RefIDMsg {
     uint64 index = 3;
 }
 
-message UpdateTypeEqualsMsg {
-    uint64 owner_index = 1;
-    uint64 other_index = 2;
-}
-
-message UpdateTypeInterpolationMsg {
-    uint64 owner_index = 1;
-    uint64 first_other = 2;
-    uint64 second_other = 3;
-    double interp = 4;
-}
-
 message ReferenceMsg {
     RefIDMsg owner = 1;
     RefIDMsg other = 2;
-    oneof update_type {
-        UpdateTypeEqualsMsg equals = 3;
-        UpdateTypeInterpolationMsg interp = 4;
-    }
 }
 
 message OptionReferenceMsg {
@@ -84,10 +68,9 @@ message DependenciesMsg {
 }
 
 message ObjectMsg {
-    string obj_url = 1;
-    DependenciesMsg dependencies = 2;
-    ResultsMsg results = 3;
-    bytes obj_data = 4;
+    DependenciesMsg dependencies = 1;
+    ResultsMsg results = 2;
+    bytes obj_data = 3;
 }
 
 message DeleteMsg {}

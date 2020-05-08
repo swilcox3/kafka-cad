@@ -1,6 +1,6 @@
 # syntax = denzp/cargo-wharf-frontend:v0.1.0-alpha.2
 [package]
-name = "walls"
+name = "operations"
 version = "0.1.0"
 authors = ["Scot Wilcox <wilcox.scot@gmail.com>"]
 edition = "2018"
@@ -14,9 +14,10 @@ env_logger = "0.7.1"
 tonic = "0.1.1"
 futures = "0.3.4"
 tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
-math = { path = "../../common/math" }
-object_state = {path = "../../common/object_state"}
-geom = {path = "../../common/geom"}
+math = { path = "../common/math" }
+object_state = {path = "../common/object_state"}
+geom = {path = "../common/geom"}
+id_gen = {path = "../common/id_gen"}
 serde_json = "1.0.52"
 serde = {version = "1.0.104", features = ["derive"]}
 thiserror = "1.0.9"
@@ -31,13 +32,13 @@ setup-commands = [
 ]
 
 [[package.metadata.wharf.binary]]
-name = "walls"
-destination = "/usr/local/bin/walls"
+name = "operations"
+destination = "/usr/local/bin/operations"
 
 [package.metadata.wharf.output]
 image = "debian:buster-slim"
 expose = ["6000"]
-entrypoint = ["/usr/local/bin/walls"]
+entrypoint = ["/usr/local/bin/operations"]
 
 
 

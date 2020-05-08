@@ -2,14 +2,13 @@ fn main() {
     tonic_build::configure()
         .build_client(true)
         .build_server(true)
+        .extern_path(".geom", "::geom")
+        .extern_path(".object_state", "::object_state")
         .compile(
             &[
-                "../proto/geom.proto",
                 "../proto/api.proto",
-                "../proto/walls.proto",
+                "../proto/operations.proto",
                 "../proto/undo.proto",
-                "../proto/object_state.proto",
-                "../proto/obj_defs.proto",
                 "../proto/representation.proto",
                 "../proto/submit.proto",
             ],

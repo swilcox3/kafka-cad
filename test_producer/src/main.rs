@@ -27,7 +27,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         id: uuid::Uuid::new_v4().to_string(),
         user: user.clone(),
         change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
-            obj_url: String::from("test"),
             dependencies: None,
             results: None,
             obj_data: Vec::new(),

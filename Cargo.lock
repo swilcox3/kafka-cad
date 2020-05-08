@@ -30,8 +30,10 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "futures",
+ "geom",
  "id_gen",
  "log",
+ "object_state",
  "prost",
  "serde_json",
  "tokio",
@@ -925,6 +927,26 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "operations"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "futures",
+ "geom",
+ "id_gen",
+ "log",
+ "math",
+ "object_state",
+ "prost",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tonic",
+ "tonic-build",
 ]
 
 [[package]]
@@ -2049,25 +2071,6 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
-
-[[package]]
-name = "walls"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "futures",
- "geom",
- "log",
- "math",
- "object_state",
- "prost",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tonic",
- "tonic-build",
-]
 
 [[package]]
 name = "want"
