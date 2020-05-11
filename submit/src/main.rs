@@ -20,12 +20,18 @@ mod submit {
     tonic::include_proto!("submit");
 }
 
+mod operations {
+    tonic::include_proto!("operations");
+}
+
 use dependencies::*;
 use objects::*;
+use operations::*;
 use submit::*;
 
 pub type ObjClient = objects_client::ObjectsClient<Channel>;
 pub type DepClient = dependencies_client::DependenciesClient<Channel>;
+pub type OpsClient = operations_client::OperationsClient<Channel>;
 
 mod produce;
 mod update;
@@ -39,6 +45,7 @@ struct SubmitService {
     topic: String,
     obj_url: String,
     dep_url: String,
+    ops_url: String,
 }
 
 #[tonic::async_trait]
@@ -55,9 +62,13 @@ impl submit_changes_server::SubmitChanges for SubmitService {
         let mut dep_client = dependencies_client::DependenciesClient::connect(self.dep_url.clone())
             .await
             .map_err(to_status)?;
+        let mut ops_client = operations_client::OperationsClient::connect(self.ops_url.clone())
+            .await
+            .map_err(to_status)?;
         let updated = update::update_changes(
             &mut obj_client,
             &mut dep_client,
+            &mut ops_client,
             msg.file,
             msg.user,
             msg.offset,
@@ -75,6 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
     let obj_url = std::env::var("OBJECTS_URL").unwrap();
     let dep_url = std::env::var("DEPENDENCIES_URL").unwrap();
+    let ops_url = std::env::var("OPERATIONS_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
     let svc = submit_changes_server::SubmitChangesServer::new(SubmitService {
@@ -82,6 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         topic,
         obj_url,
         dep_url,
+        ops_url,
     });
 
     info!("Running on {:?}", run_url);

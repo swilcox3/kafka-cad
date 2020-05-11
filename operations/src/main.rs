@@ -43,7 +43,7 @@ pub enum OpsError {
     #[error("Prost decode error")]
     ProstDecodeError(#[from] prost::DecodeError),
     #[error("{0}")]
-    StatusError(Status),
+    StatusError(#[from] Status),
     #[error("Invalid argument")]
     InvalidArgs,
     #[error("Unknown error {0}")]

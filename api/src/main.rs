@@ -170,7 +170,7 @@ impl api_server::Api for ApiService {
         for wall in msg.walls {
             let id = id_gen::gen_id();
             ids.push(id.clone());
-            walls.push(walls::WallMsg {
+            walls.push(operations::WallMsg {
                 id,
                 first_pt: wall.first_pt,
                 second_pt: wall.second_pt,

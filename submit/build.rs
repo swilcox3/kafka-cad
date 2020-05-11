@@ -11,6 +11,7 @@ fn main() {
                 "../proto/dependencies.proto",
                 "../proto/representation.proto",
                 "../proto/submit.proto",
+                "../proto/operations.proto",
             ],
             &["../proto"],
         )
