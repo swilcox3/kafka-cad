@@ -1,0 +1,2 @@
+# Operations
+The actual business logic of the application.  It depends on all the other libraries.  Again, it is stateless.  A user request comes into this library, it gathers all information necessary to execute, and performs the operation and returns the result.  Ideally, each operation would also be self-contained, but that's too much complexity right now.  Care must be taken that operations don't share too much code, though.  Most shared logic is already implemented in the other libraries under ops-server.

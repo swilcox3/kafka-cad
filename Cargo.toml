@@ -7,11 +7,10 @@ members = [
     "dependencies",
     "test_producer",
     "undo",
-    "common/math",
-    "common/id_gen",
-    "common/object_state",
-    "common/geom",
     "representations",
     "updates",
-    "operations"
+    "operations/obj-traits",
+    "operations/obj-defs",
+    "operations/operations-lib",
+    "operations/operations-server"
 ]

@@ -114,6 +114,12 @@ pub async fn update_object_cache(
 ) -> Result<(), ObjError> {
     let object = object_state::ChangeMsg::decode(input)?;
     info!("Object received: {:?}", object);
+    let id = match object.change_type {
+        Some(ChangeMsg::ChangeType::Add(object)) | Some(ChangeMsg::ChangeType::Modify(object)) => {
+            object.id.clone()
+        }
+        Some(ChangeMsg::ChangeType::Delete(msg)) => msg.id.clone(),
+    };
     store_object_change(conn, file, offset, &object.id, input).await?;
     store_file_offset(conn, file, offset).await?;
     Ok(())

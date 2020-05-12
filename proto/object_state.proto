@@ -5,50 +5,17 @@ package object_state;
 
 //This defines the types that get pushed to the ObjectState Kafka topic.
 
-message OptionPoint3Msg {
-    geom.Point3Msg pt = 1;
-}
-
-message OptionLineMsg {
-    geom.LineMsg line = 1;
-}
-
-message OptionPlaneMsg {
-    geom.PlaneMsg plane = 1;
-}
-
-message ProfileMsg {
-    repeated OptionPoint3Msg points = 1;
-    repeated OptionLineMsg lines = 2;
-    repeated OptionPlaneMsg planes = 3;
-}
-
-message AxisAlignedBBoxMsg {
-    geom.Point3Msg bottom_left = 1;
-    geom.Point3Msg top_right = 2;
-}
-
-message PropertiesMsg {
-    string prop_json = 1;
-}
-
-message ResultsMsg {
-    bool visible = 1;
-    ProfileMsg profile = 2;
-    AxisAlignedBBoxMsg bbox = 3;
-    PropertiesMsg properties = 4;
-}
-
 message RefIDMsg {
     string id = 1;
     enum RefType {
         EXISTENCE = 0;
-        VISIBILITY = 1;
+        DRAWABLE = 1;
         AXIS_ALIGNED_BBOX = 2;
         PROFILE_POINT = 3;
         PROFILE_LINE = 4;
         PROFILE_PLANE = 5;
         PROPERTY = 6;
+        EMPTY = 7;
     }
     RefType ref_type = 2;
     uint64 index = 3;
@@ -64,24 +31,24 @@ message OptionReferenceMsg {
 }
 
 message DependenciesMsg {
-    repeated OptionReferenceMsg references = 1;
 }
 
 message ObjectMsg {
-    DependenciesMsg dependencies = 1;
-    ResultsMsg results = 2;
+    string id = 1;
+    repeated OptionReferenceMsg references = 2;
     bytes obj_data = 3;
 }
 
-message DeleteMsg {}
+message DeleteMsg {
+    string id = 1;
+}
 
 //This is the fundamental message sent to the ObjectState topic.
 message ChangeMsg {
-    string id = 1;
-    string user = 2;
+    string user = 1;
     oneof change_type {
-        ObjectMsg add = 3;
-        ObjectMsg modify = 4;
-        DeleteMsg delete = 5;
+        ObjectMsg add = 2;
+        ObjectMsg modify = 3;
+        DeleteMsg delete = 4;
     }
 }

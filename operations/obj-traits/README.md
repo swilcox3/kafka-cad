@@ -1,0 +1,3 @@
+# Object Traits
+
+This library exposes the traits that an object in the model must implement.  These traits govern things like object type, unique identifier, dependencies, and updates. This library is used in the Model State library and implemented in the Object Definitions library.  It contains nothing else besides these basic object traits and the basic types they use like unique identifiers, error types, etc.

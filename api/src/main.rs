@@ -11,6 +11,10 @@ mod representation {
     tonic::include_proto!("representation");
 }
 
+mod object_state {
+    tonic::include_proto!("object_state");
+}
+
 mod operations {
     tonic::include_proto!("operations");
 }

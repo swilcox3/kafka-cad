@@ -1,0 +1,17 @@
+[package]
+name = "operations"
+version = "0.1.0"
+authors = ["SWilcox"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies] 
+obj_defs = {path = "../obj-defs"}
+log = "0.4.8"
+serde = {version = "1.0.104", features = ["derive"]}
+
+[dev-dependencies]
+tokio = {version = "0.2.11", features = ["rt-threaded", "test-util"]}
+tokio-macros = "0.2.4"
+env_logger = "0.7.1"

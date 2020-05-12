@@ -24,11 +24,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
     let user = uuid::Uuid::new_v4().to_string();
     let object = ChangeMsg {
-        id: uuid::Uuid::new_v4().to_string(),
         user: user.clone(),
         change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+            id: uuid::Uuid::new_v4().to_string(),
             dependencies: None,
-            results: None,
             obj_data: Vec::new(),
         })),
     };
