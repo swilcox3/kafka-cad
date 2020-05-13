@@ -961,7 +961,6 @@ dependencies = [
  "enum-iterator",
  "log",
  "prost",
- "redis",
  "serde",
  "serde_json",
  "thiserror",

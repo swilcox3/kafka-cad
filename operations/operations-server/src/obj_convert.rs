@@ -102,7 +102,9 @@ pub fn to_object_msg(obj: &DataBox) -> Result<ObjectMsg, ObjError> {
     }
     Ok(ObjectMsg {
         id: obj.get_id().to_string(),
-        references: ref_msgs,
+        dependencies: Some(DependenciesMsg {
+            references: ref_msgs,
+        }),
         obj_data: bincode::serialize(obj)?,
     })
 }

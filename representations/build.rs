@@ -5,7 +5,7 @@ fn main() {
         .compile(
             &[
                 "../proto/geom.proto",
-                "../proto/obj_defs.proto",
+                "../proto/operations.proto",
                 "../proto/representation.proto",
                 "../proto/object_state.proto",
             ],

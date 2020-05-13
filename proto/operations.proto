@@ -7,11 +7,10 @@ import "object_state.proto";
 import "representation.proto";
 
 message WallMsg {
-    string id = 1;
-    geom.Point3Msg first_pt = 2;
-    geom.Point3Msg second_pt = 3;
-    double width = 4;
-    double height = 5;
+    geom.Point3Msg first_pt = 1;
+    geom.Point3Msg second_pt = 2;
+    double width = 3;
+    double height = 4;
 }
 
 message CreateWallsInput {

@@ -11,7 +11,6 @@ pub use async_trait;
 pub use cgmath;
 pub use geom::*;
 pub use prost;
-pub use redis;
 pub use references::*;
 pub use serde;
 pub use serde_json;

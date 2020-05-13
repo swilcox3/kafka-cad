@@ -37,22 +37,21 @@ pub async fn invert_changes(
             Some(prev_change) => match current.change_type {
                 UndoChangeType::Add => {
                     inverted.push(ChangeMsg {
-                        id: current.obj_id,
                         user: String::from(user),
-                        change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {})),
+                        change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {
+                            id: current.obj_id,
+                        })),
                     });
                 }
                 UndoChangeType::Modify => match prev_change.change_type {
                     Some(change_msg::ChangeType::Add(prev_object)) => {
                         inverted.push(ChangeMsg {
-                            id: current.obj_id,
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Modify(prev_object)),
                         });
                     }
                     Some(change_msg::ChangeType::Modify(prev_object)) => {
                         inverted.push(ChangeMsg {
-                            id: current.obj_id,
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Modify(prev_object)),
                         });
@@ -67,14 +66,12 @@ pub async fn invert_changes(
                 UndoChangeType::Delete => match prev_change.change_type {
                     Some(change_msg::ChangeType::Add(prev_object)) => {
                         inverted.push(ChangeMsg {
-                            id: current.obj_id,
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Add(prev_object)),
                         });
                     }
                     Some(change_msg::ChangeType::Modify(prev_object)) => {
                         inverted.push(ChangeMsg {
-                            id: current.obj_id,
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Add(prev_object)),
                         });
@@ -89,14 +86,12 @@ pub async fn invert_changes(
                 UndoChangeType::NotSet => match prev_change.change_type {
                     Some(change_msg::ChangeType::Add(prev_object)) => {
                         inverted.push(ChangeMsg {
-                            id: current.obj_id,
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Add(prev_object)),
                         });
                     }
                     Some(change_msg::ChangeType::Modify(prev_object)) => {
                         inverted.push(ChangeMsg {
-                            id: current.obj_id,
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Add(prev_object)),
                         });
@@ -111,9 +106,10 @@ pub async fn invert_changes(
             },
             None => {
                 inverted.push(ChangeMsg {
-                    id: current.obj_id,
                     user: String::from(user),
-                    change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {})),
+                    change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {
+                        id: current.obj_id,
+                    })),
                 });
             }
         }

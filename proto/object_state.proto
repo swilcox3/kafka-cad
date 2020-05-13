@@ -31,11 +31,12 @@ message OptionReferenceMsg {
 }
 
 message DependenciesMsg {
+    repeated OptionReferenceMsg references = 1;
 }
 
 message ObjectMsg {
     string id = 1;
-    repeated OptionReferenceMsg references = 2;
+    DependenciesMsg dependencies = 2;
     bytes obj_data = 3;
 }
 

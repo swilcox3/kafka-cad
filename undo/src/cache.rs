@@ -123,13 +123,12 @@ pub async fn update_undo_cache(
     msg_bytes: &[u8],
 ) -> Result<(), UndoError> {
     let msg = ChangeMsg::decode(msg_bytes)?;
-    let obj_id = msg.id;
     let user = msg.user;
-    let change_type = match msg.change_type {
-        Some(change_msg::ChangeType::Add(..)) => UndoChangeType::Add,
-        Some(change_msg::ChangeType::Modify(..)) => UndoChangeType::Modify,
-        Some(change_msg::ChangeType::Delete(..)) => UndoChangeType::Delete,
-        None => UndoChangeType::NotSet,
+    let (obj_id, change_type) = match msg.change_type {
+        Some(change_msg::ChangeType::Add(msg)) => (msg.id, UndoChangeType::Add),
+        Some(change_msg::ChangeType::Modify(msg)) => (msg.id, UndoChangeType::Modify),
+        Some(change_msg::ChangeType::Delete(msg)) => (msg.id, UndoChangeType::Delete),
+        None => (String::new(), UndoChangeType::NotSet),
     };
     let undo_stack = undo_stack(file, &user);
     let cur_event: Option<String> = redis_conn.lindex(undo_stack, -1).await?;

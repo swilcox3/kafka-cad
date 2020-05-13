@@ -115,12 +115,16 @@ pub async fn update_object_cache(
     let object = object_state::ChangeMsg::decode(input)?;
     info!("Object received: {:?}", object);
     let id = match object.change_type {
-        Some(ChangeMsg::ChangeType::Add(object)) | Some(ChangeMsg::ChangeType::Modify(object)) => {
-            object.id.clone()
+        Some(change_msg::ChangeType::Add(object))
+        | Some(change_msg::ChangeType::Modify(object)) => object.id.clone(),
+        Some(change_msg::ChangeType::Delete(msg)) => msg.id.clone(),
+        None => {
+            return Err(ObjError::ObjNotFound(String::from(
+                "No change type specified",
+            )));
         }
-        Some(ChangeMsg::ChangeType::Delete(msg)) => msg.id.clone(),
     };
-    store_object_change(conn, file, offset, &object.id, input).await?;
+    store_object_change(conn, file, offset, &id, input).await?;
     store_file_offset(conn, file, offset).await?;
     Ok(())
 }

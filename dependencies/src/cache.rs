@@ -419,18 +419,18 @@ async fn update_deps_inner(
         match change_type {
             change_msg::ChangeType::Add(object) => {
                 if let Some(deps) = object.dependencies {
-                    add_deps(conn, file, &change.id, &deps, offset).await?;
+                    add_deps(conn, file, &object.id, &deps, offset).await?;
                 }
             }
             change_msg::ChangeType::Modify(object) => {
                 if let Some(deps) = object.dependencies {
-                    modify_deps(conn, file, &change.id, &deps, offset).await?;
+                    modify_deps(conn, file, &object.id, &deps, offset).await?;
                 }
             }
-            change_msg::ChangeType::Delete(..) => {
-                let prev_obj_refs = get_obj_refs(conn, file, &change.id).await?;
+            change_msg::ChangeType::Delete(msg) => {
+                let prev_obj_refs = get_obj_refs(conn, file, &msg.id).await?;
                 if let Some((_, deps)) = prev_obj_refs {
-                    delete_deps(conn, file, &change.id, &deps, offset).await?;
+                    delete_deps(conn, file, &msg.id, &deps, offset).await?;
                 }
             }
         }

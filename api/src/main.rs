@@ -11,6 +11,10 @@ mod representation {
     tonic::include_proto!("representation");
 }
 
+mod geom {
+    tonic::include_proto!("geom");
+}
+
 mod object_state {
     tonic::include_proto!("object_state");
 }
@@ -170,12 +174,8 @@ impl api_server::Api for ApiService {
                 .map_err(unavailable)?;
         let prefix = Prefix::new(msg.prefix)?;
         let mut walls = Vec::new();
-        let mut ids = Vec::new();
         for wall in msg.walls {
-            let id = id_gen::gen_id();
-            ids.push(id.clone());
             walls.push(operations::WallMsg {
-                id,
                 first_pt: wall.first_pt,
                 second_pt: wall.second_pt,
                 width: wall.width,
@@ -187,9 +187,10 @@ impl api_server::Api for ApiService {
             .await?
             .into_inner();
         let mut changes = Vec::new();
-        for (obj, id) in objects.walls.into_iter().zip(ids.iter()) {
+        let mut ids = Vec::new();
+        for obj in objects.walls.into_iter() {
+            ids.push(obj.id.clone());
             changes.push(object_state::ChangeMsg {
-                id: id.clone(),
                 user: prefix.user.clone(),
                 change_type: Some(object_state::change_msg::ChangeType::Add(obj)),
             });

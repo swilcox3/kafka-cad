@@ -71,8 +71,7 @@ async fn get_objects_to_update(
     offset: i64,
     user: String,
     obj_ids: Vec<String>,
-    objects: &mut HashMap<String, ChangeMsg>,
-) -> Result<(), tonic::Status> {
+) -> Result<Vec<ChangeMsg>, tonic::Status> {
     let mut entries = Vec::new();
     for id in obj_ids {
         entries.push(ObjectAtOffset { offset, obj_id: id });
@@ -85,13 +84,14 @@ async fn get_objects_to_update(
         .get_objects(Request::new(input))
         .await?
         .into_inner();
+    let mut results = Vec::new();
     for change_opt in objs_msg.objects {
         if let Some(mut change) = change_opt.change {
             change.user = user.clone();
-            objects.insert(change.id.clone(), change);
+            results.push(change);
         }
     }
-    Ok(())
+    Ok(results)
 }
 
 fn get_object(change: &ChangeMsg) -> Option<&ObjectMsg> {
@@ -145,8 +145,7 @@ pub async fn update_changes(
     let (ref_ids, mut objects) = extract_info(changes);
     let refers = get_all_dependencies(dep_client, &file, offset, ref_ids).await?;
     let obj_ids = get_obj_ids_to_fetch(&refers, &objects);
-    get_objects_to_update(obj_client, &file, offset, user, obj_ids, &mut objects).await?;
-    let obj_vec = objects.drain().map(|(_, value)| value).collect();
+    let obj_vec = get_objects_to_update(obj_client, &file, offset, user, obj_ids).await?;
     let results = update(ops_client, refers, obj_vec).await?;
     Ok(results)
 }
