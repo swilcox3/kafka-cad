@@ -45,34 +45,28 @@ pub enum RepresentationError {
     ProstDecodeError(#[from] prost::DecodeError),
 }
 
-async fn call_service(object: ObjectMsg) -> Result<Option<UpdateOutputMsg>, RepresentationError> {
-    let mut client = obj_defs::obj_def_client::ObjDefClient::connect(url).await?;
-    let representation = client
+async fn call_service(ops_url: String, object: ChangeMsg) -> Result<Option<UpdateOutputMsg>, RepresentationError> {
+    let mut client = operations::operations_client::OperationsClient::connect(ops_url).await?;
+    let mut representation = client
         .client_representation(Request::new(ClientRepresentationInput {
-            object: Some(object),
+            objects: vec![object],
         }))
         .await?
         .into_inner();
-    Ok(representation.output)
+    Ok(representation.outputs.pop())
 }
 
 pub async fn calc_representation(
     broker: &str,
     topic: &str,
     file: &str,
+    ops_url: String,
     msg: &[u8],
 ) -> Result<(), RepresentationError> {
     let change = object_state::ChangeMsg::decode(msg)?;
-    if let Some(change_type) = change.change_type {
-        match change_type {
-            change_msg::ChangeType::Add(object) | change_msg::ChangeType::Modify(object) => {
-                let repr_opt = call_service(object).await?;
-                if let Some(repr) = repr_opt {
-                    produce::submit_representations(broker, topic, file, repr).await?;
-                }
-            }
-            _ => (),
-        }
+    let repr_opt = call_service(ops_url, change).await?;
+    if let Some(repr) = repr_opt {
+        produce::submit_representations(broker, topic, file, repr).await?;
     }
     Ok(())
 }
@@ -84,6 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let group = std::env::var("GROUP").unwrap();
     let obj_topic = std::env::var("OBJ_TOPIC").unwrap();
     let repr_topic = std::env::var("REPR_TOPIC").unwrap();
-    consume::start_consume_stream(broker, group, obj_topic, repr_topic).await;
+    let ops_url = std::env::var("OPS_URL").unwrap();
+    consume::start_consume_stream(broker, group, obj_topic, repr_topic, ops_url).await;
     return Ok(());
 }

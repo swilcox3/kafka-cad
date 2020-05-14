@@ -283,3 +283,10 @@ pub trait Data: std::fmt::Debug + Send + Sync + downcast_rs::Downcast {
 downcast_rs::impl_downcast!(Data);
 
 pub type DataBox = Box<dyn Data>;
+
+#[derive(Debug)]
+pub enum Change {
+    Add { obj: DataBox },
+    Modify { obj: DataBox },
+    Delete { id: ObjID },
+}

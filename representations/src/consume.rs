@@ -1,14 +1,15 @@
+use crate::*;
 use futures::StreamExt;
 use log::*;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{CommitMode, Consumer};
 use rdkafka::message::Message;
-use crate::*;
 
 async fn handle_message<M: Message>(
     broker: &str,
     repr_topic: &str,
+    ops_url: String,
     m: &M,
 ) -> Result<(), RepresentationError> {
     let partition = m.partition();
@@ -20,7 +21,7 @@ async fn handle_message<M: Message>(
         .key()
         .ok_or(RepresentationError::FileError { partition, offset })?;
     let file = std::str::from_utf8(file_bytes)?;
-    calc_representation(broker, repr_topic, file, bytes).await?;
+    calc_representation(broker, repr_topic, file, ops_url, bytes).await?;
     Ok(())
 }
 
@@ -29,6 +30,7 @@ async fn handle_stream(
     group_id: &str,
     obj_topic: &str,
     repr_topic: &str,
+    ops_url: String,
 ) -> Result<(), RepresentationError> {
     let consumer: StreamConsumer<rdkafka::consumer::DefaultConsumerContext> = ClientConfig::new()
         .set("group.id", group_id)
@@ -48,7 +50,7 @@ async fn handle_stream(
     while let Some(message) = message_stream.next().await {
         match message {
             Ok(m) => {
-                if let Err(e) = handle_message(brokers, repr_topic, &m).await {
+                if let Err(e) = handle_message(brokers, repr_topic, ops_url.clone(), &m).await {
                     error!("{}", e);
                 }
                 if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
@@ -68,9 +70,10 @@ pub async fn start_consume_stream(
     group_id: String,
     obj_topic: String,
     repr_topic: String,
+    ops_url: String
 ) {
     std::thread::sleep(std::time::Duration::from_secs(30));
-    if let Err(e) = handle_stream(&brokers, &group_id, &obj_topic, &repr_topic).await {
+    if let Err(e) = handle_stream(&brokers, &group_id, &obj_topic, &repr_topic, ops_url).await {
         error!("{}", e);
     }
 }

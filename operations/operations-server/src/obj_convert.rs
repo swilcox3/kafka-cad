@@ -1,5 +1,6 @@
 use crate::*;
 use operations::indexmap::IndexMap;
+use representation::*;
 
 pub fn to_obj_id(id: &str) -> Result<ObjID, tonic::Status> {
     let parsed =
@@ -142,7 +143,7 @@ pub fn to_object_msg(obj: &DataBox) -> Result<ObjectMsg, ObjError> {
     })
 }
 
-pub fn from_change_msgs(
+pub fn get_map_from_change_msgs(
     msgs: &Vec<ChangeMsg>,
 ) -> Result<IndexMap<ObjID, Option<DataBox>>, tonic::Status> {
     let mut results = IndexMap::new();
@@ -159,6 +160,29 @@ pub fn from_change_msgs(
             }
             None => (),
         }
+    }
+    Ok(results)
+}
+
+pub fn from_change_msg(msg: &ChangeMsg) -> Result<Change, tonic::Status> {
+    match &msg.change_type {
+        Some(change_msg::ChangeType::Add(object)) => Ok(Change::Add {
+            obj: from_object_msg(&object).map_err(to_status)?,
+        }),
+        Some(change_msg::ChangeType::Modify(object)) => Ok(Change::Modify {
+            obj: from_object_msg(&object).map_err(to_status)?,
+        }),
+        Some(change_msg::ChangeType::Delete(msg)) => Ok(Change::Delete {
+            id: to_obj_id(&msg.id)?,
+        }),
+        None => Err(tonic::Status::invalid_argument("No change type specified")),
+    }
+}
+
+pub fn from_change_msgs(msgs: &Vec<ChangeMsg>) -> Result<Vec<Change>, tonic::Status> {
+    let mut results = Vec::new();
+    for msg in msgs {
+        results.push(from_change_msg(msg)?);
     }
     Ok(results)
 }
@@ -212,4 +236,175 @@ pub fn to_change_msgs(
         }
     }
     Ok(results)
+}
+
+fn from_json(json_opt: Option<serde_json::Value>) -> String {
+    match json_opt {
+        Some(json) => json.to_string(),
+        None => String::default(),
+    }
+}
+
+fn encode_mesh(mesh: MeshData) -> MeshDataMsg {
+    MeshDataMsg {
+        positions: mesh.positions,
+        indices: mesh.indices,
+        meta_json: from_json(mesh.metadata),
+    }
+}
+
+fn encode_transmat(mat: TransMat) -> Vec<f64> {
+    let mut results = Vec::new();
+    results.push(mat.x.x);
+    results.push(mat.x.y);
+    results.push(mat.x.z);
+    results.push(mat.x.w);
+    results.push(mat.y.x);
+    results.push(mat.y.y);
+    results.push(mat.y.z);
+    results.push(mat.y.w);
+    results.push(mat.z.x);
+    results.push(mat.z.y);
+    results.push(mat.z.z);
+    results.push(mat.z.w);
+    results.push(mat.w.x);
+    results.push(mat.w.y);
+    results.push(mat.w.z);
+    results.push(mat.w.w);
+    results
+}
+
+fn encode_point3(pt: Point3f) -> Option<Point3Msg> {
+    Some(Point3Msg {
+        x: pt.x,
+        y: pt.y,
+        z: pt.z,
+    })
+}
+
+fn encode_point2(pt: Point2f) -> Option<Point2Msg> {
+    Some(Point2Msg { x: pt.x, y: pt.y })
+}
+
+fn encode_instance(instance: InstanceData) -> InstanceDataMsg {
+    let source = match instance.source {
+        Some(id) => id.to_string(),
+        None => String::new(),
+    };
+    let meta_json = match instance.metadata {
+        Some(meta) => meta.to_string(),
+        None => String::new(),
+    };
+    InstanceDataMsg {
+        transform: encode_transmat(instance.transform),
+        bottom_left: encode_point3(instance.bbox.bottom_left),
+        top_right: encode_point3(instance.bbox.top_right),
+        source,
+        meta_json,
+    }
+}
+
+
+fn encode_rgba(color: RGBA) -> Option<RgbaMsg> {
+    Some(RgbaMsg {
+        r: color.r as u32,
+        g: color.g as u32,
+        b: color.b as u32,
+        a: color.a,
+    })
+}
+
+fn encode_draw_element_2d(element: DrawElement2D) -> DrawElement2DMsg {
+    let element_msg = match element.element {
+        Element2D::Line(line) => draw_element2_d_msg::Element::Line(Line2DMsg {
+            first: encode_point2(line.first),
+            second: encode_point2(line.second),
+        }),
+        Element2D::Arc(arc) => draw_element2_d_msg::Element::Arc(Arc2DMsg {
+            center: encode_point2(arc.center),
+            radius: arc.radius,
+            start_angle: arc.start_angle.0,
+            end_angle: arc.end_angle.0,
+        }),
+        Element2D::Rect(rect) => draw_element2_d_msg::Element::Rect(Rect2DMsg {
+            bottom_left: encode_point2(rect.bottom_left),
+            top_right: encode_point2(rect.top_right),
+        }),
+        Element2D::Poly(poly) => {
+            let mut pts = Vec::new();
+            for pt in poly.pts {
+                pts.push(encode_point2(pt).unwrap());
+            }
+            draw_element2_d_msg::Element::Poly(Poly2DMsg { pts })
+        }
+    };
+    let fill_type = match element.fill_type {
+        FillType::Solid { color } => {
+            draw_element2_d_msg::FillType::FillSolid(encode_rgba(color).unwrap())
+        }
+        FillType::Hatch { name } => draw_element2_d_msg::FillType::Hatch(name),
+    };
+    let line_type = match element.line_type {
+        LineType::Solid => draw_element2_d_msg::LineType::LineSolid(String::default()),
+        LineType::Dashed { name } => draw_element2_d_msg::LineType::Dashed(name),
+    };
+    DrawElement2DMsg {
+        element: Some(element_msg),
+        line_type: Some(line_type),
+        fill_type: Some(fill_type),
+        line_thickness: element.line_thickness,
+        line_color: encode_rgba(element.line_color),
+    }
+}
+
+fn encode_drawing_data(data_opt: Option<DrawingData>) -> Option<DrawingDataMsg> {
+    match data_opt {
+        Some(data) => {
+            let mut elements = Vec::new();
+            for elem in data.elements {
+                elements.push(encode_draw_element_2d(elem));
+            }
+            Some(DrawingDataMsg { elements })
+        }
+        None => None,
+    }
+}
+
+pub fn encode_views(views_opt: Option<DrawingRepresentations>) -> Option<DrawingViewsMsg> {
+    match views_opt {
+        Some(views) => Some(DrawingViewsMsg {
+            top: encode_drawing_data(views.top),
+            front: encode_drawing_data(views.front),
+            left: encode_drawing_data(views.left),
+            right: encode_drawing_data(views.right),
+            back: encode_drawing_data(views.back),
+            bottom: encode_drawing_data(views.bottom),
+        }),
+        None => None,
+    }
+}
+
+pub fn encode_update_output(
+    output: UpdateOutput,
+    views: Option<DrawingRepresentations>,
+) -> UpdateOutputMsg {
+    let encoded_output = match output {
+        UpdateOutput::Empty => Some(update_output_msg::Output::Empty(String::default())),
+        UpdateOutput::Delete => Some(update_output_msg::Output::Delete(String::default())),
+        UpdateOutput::Mesh { data } => Some(update_output_msg::Output::Mesh(encode_mesh(data))),
+        UpdateOutput::FileRef { file } => {
+            Some(update_output_msg::Output::FileRef(file.to_string()))
+        }
+        UpdateOutput::Instance { data } => {
+            Some(update_output_msg::Output::Instance(encode_instance(data)))
+        }
+        UpdateOutput::Other { data } => {
+            Some(update_output_msg::Output::OtherJson(data.to_string()))
+        }
+    };
+    let encoded_views = encode_views(views);
+    UpdateOutputMsg {
+        output: encoded_output,
+        views: encoded_views
+    }
 }

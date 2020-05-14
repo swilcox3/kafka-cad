@@ -67,3 +67,16 @@ pub async fn remove_objs_from_visibility_group(
     }
     Ok(())
 }
+
+pub async fn get_obj_update_info(
+    geom_conn: &mut GeomConn,
+    obj: &DataBox,
+) -> Result<(UpdateOutput, Option<DrawingRepresentations>), ObjError> {
+    let output = obj.update(geom_conn).await?;
+    let views_opt = match obj.as_drawing_views() {
+        Some(views) => Some(views.get_views(ViewFlags::all())),
+        None => None,
+    };
+    Ok((output, views_opt))
+}
+

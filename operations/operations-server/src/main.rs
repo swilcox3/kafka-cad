@@ -58,7 +58,7 @@ impl operations_server::Operations for OperationsService {
         let update_msg = request.get_ref();
         info!("Update objects: {:?}", update_msg);
         let refers = from_ref_msgs(&update_msg.obj_refs)?;
-        let mut objs = from_change_msgs(&update_msg.objects)?;
+        let mut objs = get_map_from_change_msgs(&update_msg.objects)?;
         operations::update_all(&mut objs, refers);
         let changes = to_change_msgs(&update_msg.objects, &objs).map_err(to_status)?;
         Ok(Response::new(UpdateObjectsOutput { objects: changes }))
@@ -68,7 +68,26 @@ impl operations_server::Operations for OperationsService {
         &self,
         request: Request<ClientRepresentationInput>,
     ) -> Result<Response<ClientRepresentationOutput>, Status> {
-        unimplemented!();
+        let repr_msg = request.get_ref();
+        info!("Client representation: {:?}", repr_msg);
+        let mut geom_conn =
+            new_geom_conn(self.geom_url.clone())
+                .await
+                .map_err(to_status)?;
+        let changes = from_change_msgs(&repr_msg.objects)?;
+        let mut outputs = Vec::new();
+        for change in changes {
+            let (output, views_opt) = match change {
+                Change::Add { obj } | Change::Modify { obj } => {
+                    get_obj_update_info(&mut geom_conn, &obj)
+                        .await
+                        .map_err(to_status)?
+                }
+                Change::Delete { .. } => (UpdateOutput::Delete, None),
+            };
+            outputs.push(encode_update_output(output, views_opt));
+        }
+        Ok(Response::new(ClientRepresentationOutput { outputs }))
     }
 }
 

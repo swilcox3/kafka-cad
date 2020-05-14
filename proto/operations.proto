@@ -33,11 +33,11 @@ message UpdateObjectsOutput {
 }
 
 message ClientRepresentationInput {
-    object_state.ObjectMsg object = 1;
+    repeated object_state.ChangeMsg objects = 1;
 }
 
 message ClientRepresentationOutput {
-    representation.UpdateOutputMsg output = 1;
+    repeated representation.UpdateOutputMsg outputs = 1;
 }
 
 service Operations {

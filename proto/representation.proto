@@ -78,11 +78,9 @@ message UpdateOutputMsg
 
 message UpdateChangeMsg
 {
-    string file = 1;
-    string user = 2;
-    uint64 change = 3;
-    string obj_id = 4;
-    UpdateOutputMsg update = 5;
+    string user = 1;
+    string obj_id = 2;
+    UpdateOutputMsg update = 3;
 }
 
 
