@@ -19,7 +19,7 @@ pub async fn submit_changes(brokers: &str, topic_name: &str, payloads: Vec<Chang
         .map(|msg| {
             let mut payload = Vec::new();
             msg.encode(&mut payload).unwrap();
-            let key = match object.change_type {
+            let key = match msg.change_type {
                 Some(change_msg::ChangeType::Add(object))
                 | Some(change_msg::ChangeType::Modify(object)) => object.id.clone(),
                 Some(change_msg::ChangeType::Delete(msg)) => msg.id.clone(),

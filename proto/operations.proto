@@ -25,11 +25,11 @@ message UpdateObjectsInput {
     //This is a traversal of the dependency graph, it tells us the order in which to update
     repeated object_state.ReferenceMsg obj_refs = 1;
     //The objects pointed to in obj_refs
-    repeated object_state.ObjectMsg objects = 2;
+    repeated object_state.ChangeMsg objects = 2;
 }
 
 message UpdateObjectsOutput {
-    repeated object_state.ObjectMsg objects = 1;
+    repeated object_state.ChangeMsg objects = 1;
 }
 
 message ClientRepresentationInput {

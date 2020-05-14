@@ -55,7 +55,13 @@ impl operations_server::Operations for OperationsService {
         &self,
         request: Request<UpdateObjectsInput>,
     ) -> Result<Response<UpdateObjectsOutput>, Status> {
-        unimplemented!();
+        let update_msg = request.get_ref();
+        info!("Update objects: {:?}", update_msg);
+        let refers = from_ref_msgs(&update_msg.obj_refs)?;
+        let mut objs = from_change_msgs(&update_msg.objects)?;
+        operations::update_all(&mut objs, refers);
+        let changes = to_change_msgs(&update_msg.objects, &objs).map_err(to_status)?;
+        Ok(Response::new(UpdateObjectsOutput { objects: changes }))
     }
 
     async fn client_representation(

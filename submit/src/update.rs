@@ -1,9 +1,10 @@
 use super::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+use indexmap::IndexMap;
 
-fn extract_info(changes: Vec<ChangeMsg>) -> (Vec<RefIdMsg>, HashMap<String, ChangeMsg>) {
+fn extract_info(changes: Vec<ChangeMsg>) -> (Vec<RefIdMsg>, IndexMap<String, ChangeMsg>) {
     let mut ref_ids = Vec::new();
-    let mut objects = HashMap::new();
+    let mut objects = IndexMap::new();
     for change in changes {
         if let Some(change_type) = &change.change_type {
             match change_type {
@@ -17,11 +18,13 @@ fn extract_info(changes: Vec<ChangeMsg>) -> (Vec<RefIdMsg>, HashMap<String, Chan
                             }
                         }
                     }
+                    objects.insert(object.id.clone(), change);
                 }
-                change_msg::ChangeType::Delete(..) => (),
+                change_msg::ChangeType::Delete(msg) => {
+                    objects.insert(msg.id.clone(), change);
+                }
             }
         }
-        objects.insert(change.id.clone(), change);
     }
     (ref_ids, objects)
 }
@@ -47,7 +50,7 @@ async fn get_all_dependencies(
 
 fn get_obj_ids_to_fetch(
     refers: &Vec<ReferenceMsg>,
-    objects: &HashMap<String, ChangeMsg>,
+    objects: &IndexMap<String, ChangeMsg>,
 ) -> Vec<String> {
     let mut results = HashSet::new();
     for refer in refers {
@@ -92,32 +95,6 @@ async fn get_objects_to_update(
         }
     }
     Ok(results)
-}
-
-fn get_object(change: &ChangeMsg) -> Option<&ObjectMsg> {
-    let mut result = None;
-    if let Some(change_type) = &change.change_type {
-        match change_type {
-            change_msg::ChangeType::Add(object) | change_msg::ChangeType::Modify(object) => {
-                result = Some(object);
-            }
-            _ => (),
-        }
-    }
-    result
-}
-
-fn get_object_mut(change: &mut ChangeMsg) -> Option<&mut ObjectMsg> {
-    let mut result = None;
-    if let Some(change_type) = &mut change.change_type {
-        match change_type {
-            change_msg::ChangeType::Add(object) | change_msg::ChangeType::Modify(object) => {
-                result = Some(object);
-            }
-            _ => (),
-        }
-    }
-    result
 }
 
 async fn update(
