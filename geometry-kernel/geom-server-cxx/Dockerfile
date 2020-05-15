@@ -38,6 +38,7 @@ RUN cd occt && mkdir build && cd build && cmake \
 
 RUN mkdir geometry-kernel && cd geometry-kernel && mkdir geom-server-cxx
 RUN mkdir proto
+COPY ./proto/geom.proto ./proto/geom.proto
 COPY ./proto/geom_kernel.proto ./proto/geom_kernel.proto
 COPY ./geometry-kernel/geom-server-cxx/ ./geometry-kernel/geom-server-cxx
 

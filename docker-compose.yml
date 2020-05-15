@@ -1,4 +1,4 @@
-version: '2.1'
+version: '3.7'
 
 services:
   zoo1:
@@ -87,8 +87,9 @@ services:
         - kafka1
     environment: 
         - RUN_URL=0.0.0.0:6000
-        - OBJECTS_URL=http://objects
-        - DEPENDENCIES_URL=http://dependencies
+        - OBJECTS_URL=objects
+        - DEPENDENCIES_URL=dependencies
+        - OPERATIONS_URL=operations
         - BROKER=kafka1
         - TOPIC=ObjectState
         - RUST_LOG=info
@@ -109,7 +110,7 @@ services:
     environment: 
         - RUN_URL=0.0.0.0:6000
         - REDIS_URL=redis://redis-undo:6379
-        - OBJECTS_URL=http://objects
+        - OBJECTS_URL=objects
         - BROKER=kafka1
         - GROUP=undoGroup
         - TOPIC=ObjectState
@@ -121,7 +122,7 @@ services:
   operations:
     build: 
         context: ./
-        dockerfile: operations/Cargo.toml
+        dockerfile: operations/operations-server/Cargo.toml
     environment: 
         - RUN_URL=0.0.0.0:6000
         - GEOM_URL=geom-kernel
@@ -167,6 +168,18 @@ services:
         - SUBMIT_URL=submit
         - RUST_LOG=info
     ports:
-      - "6000:6000"
+      - "8080:6000"
+  ui-server:
+    build:
+        context: ./
+        dockerfile: ui-server/Cargo.toml
+    environment:
+        - RUST_LOG=info
+    volumes:
+        - type: bind
+          source: ./ui/dist
+          target: /dist
+    ports:
+        - "80:80"
       
   

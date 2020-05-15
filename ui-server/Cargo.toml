@@ -1,0 +1,28 @@
+# syntax = denzp/cargo-wharf-frontend:v0.1.0-alpha.2
+[package]
+name = "ui_server"
+version = "0.1.0"
+authors = ["SWilcox"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "2.0.0"
+actix-files = "0.2.1"
+actix-rt = "1.0.0"
+log = "0.4.8"
+env_logger = "0.7.1"
+
+[package.metadata.wharf.builder]
+image = "rust:slim-buster"
+
+[[package.metadata.wharf.binary]]
+name = "ui_server"
+destination = "/usr/local/bin/ui_server"
+
+[package.metadata.wharf.output]
+image = "debian:buster-slim"
+expose = ["7000"]
+volumes = ["/data"]
+entrypoint = ["/usr/local/bin/ui_server"]

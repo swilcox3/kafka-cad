@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist/",
+    "sourceMap": true,
+    "noImplicitAny": false,
+    "allowSyntheticDefaultImports": true,
+    "module": "esNext",
+    "target": "es6",
+    "jsx": "react",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "baseUrl": "./node_modules",
+    "types": [
+      "babylonjs",
+      "babylonjs-gui"
+    ],
+    "lib": [
+      "es2016",
+      "dom"
+    ]
+  }
+}

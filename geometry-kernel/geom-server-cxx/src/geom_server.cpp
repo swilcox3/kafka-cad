@@ -10,6 +10,7 @@
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_context.h>
 #include <grpcpp/security/server_credentials.h>
+#include "geom.pb.h"
 #include "geom_kernel.grpc.pb.h"
 #include "oce_interface.hpp"
 
@@ -22,6 +23,7 @@ using grpc::ServerWriter;
 using grpc::Status;
 using grpc::StatusCode;
 using std::chrono::system_clock;
+using namespace geom;
 using namespace geom_kernel;
 
 gp_Pnt GetPoint(const Point3Msg &pt)

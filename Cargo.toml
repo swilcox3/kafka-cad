@@ -12,5 +12,6 @@ members = [
     "operations/obj-traits",
     "operations/obj-defs",
     "operations/operations-lib",
-    "operations/operations-server"
+    "operations/operations-server",
+    "ui-server"
 ]

@@ -1,0 +1,38 @@
+{
+  "name": "cloud-cad-browser-ui",
+  "version": "1.0.0",
+  "description": "Browser client for cloud-native CAD",
+  "main": "index.js",
+  "scripts": {
+    "web-build": "rimraf dist && webpack",
+    "start": "webpack-dev-server --open",
+    "protos": "protoc --proto_path=../proto --js_out=import_style=commonjs,binary:src/proto/ --grpc-web_out=import_style=commonjs+dts,mode=grpcwebtext:src/proto/ ../proto/geom.proto ../proto/api.proto ../proto/representation.proto",
+    "proto-prep": "rimraf src/proto && mkdirp src/proto",
+    "build": "npm run proto-prep && npm run protos && npm run web-build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/es6-shim": "^0.31.39",
+    "clean-webpack-plugin": "^3.0.0",
+    "copy-webpack-plugin": "^5.1.1",
+    "css-loader": "^3.0.0",
+    "html-webpack-plugin": "^3.2.0",
+    "mkdirp": "^1.0.3",
+    "style-loader": "^0.23.1",
+    "ts-loader": "^6.0.4",
+    "tsconfig-paths-webpack-plugin": "^3.2.0",
+    "typescript": "^3.5.2",
+    "webpack": "^4.35.2",
+    "webpack-cli": "^3.3.5",
+    "webpack-dev-server": "^3.7.2"
+  },
+  "dependencies": {
+    "babylonjs": "^4.1.0",
+    "babylonjs-gui": "^4.1.0",
+    "google-protobuf": "^3.11.4",
+    "grpc-web": "^1.0.7",
+    "websocket-as-promised": "^0.10.1"
+  }
+}

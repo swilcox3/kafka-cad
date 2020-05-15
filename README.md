@@ -1,34 +1,34 @@
 # kafka-cad
-I've gotten far enough on my monolithic application I think I can break it out into microservices intelligently now.  The general idea is that all changes to the model state are stored in Kafka.  Services tail the changes in Kafka and compute results accordingly.  
-The general control flow goes like this:
-1. The user submits a request to change things in the API.
-2. The API server directs it to the appropriate service that knows how to apply the change.  
-3. That service collects any necessary information, transforms the data, and writes the change to the appropriate Kafka topic, and returns any values to the API server.
-4. The API server returns to the client.
-5. Tailing services update any caches and react according to changes.
+This is a cloud-native architectural CAD prototype.  A browser-based UI 
 
-For example, let's follow a move objects operation:
-1. The user makes a MoveObjects gRPC call.  It contains a list of object IDs and the delta vector, as well as the change ID.
-2. The API server directs the message to the Position service.  
-3. The Position service calls the GetObjects function on the Objects service with the list of IDs and gets the state of the objects at that change ID.  
-4. The Position service updates the state of each object to be moved by the delta vector.
-5. The Position service pushes the changed object states to the ObjectState topic in Kafka.
-6. The Position service returns success and the new change ID, which gets passed back to the client.
-7. The Objects service sees the new change in the ObjectState topic and updates its cache.
-8. The Representation service sees the new change in the ObjectState topic, calculates new client representations of all included objects, and pushes them to the ClientRepresentations topic.
-9. The Updates service sees the new representations in the ClientRepresentations topic, and pushes them via Websocket to all connected clients.
+
+The general idea is that all changes to the model state are stored in Kafka.  Services tail the changes in Kafka and compute results accordingly.  
+The general control flow goes like this:
+1. The user submits a request to change things using the API.
+2. The API server collects any necessary information from caching services
+3. The API server calls the service that knows how to make the change
+4. The API server sends the changes to the Submit service, which publishes them to the Kafka topic.  It then returns out to the user.
+5. Tailing services update any caches and react according to changes.
 
 # Kafka Topics
 1. ObjectState - This is the full history of all changes to all objects in the model.
 2. ClientRepresentations - Parallels ObjectState with the client representations of all objects, which includes tessellations, drawing views, etc.
 
 # Foundational Services
-1. Objects - Holds the last few changes to all objects in Redis for fast access.  The API is read only, and the cache is only updated through the ObjectState topic.
-2. Dependencies - Holds the dependency graphs for the last few changes in Redis for fast access.  The API is read only, and the cache is only updated through the ObjectState topic.
+1. Objects - Holds the changes to all objects in Redis for fast access.  The API is read only, and the cache is only updated through the ObjectState topic.
+2. Dependencies - Holds the dependency graphs for all objects in Redis for fast access.  The API is read only, and the cache is only updated through the ObjectState topic.
 3. Undo - Holds user undo/redo stacks, mapping change IDs to users.
 4. Representations - Calculates the client representations.  Has no external API, only responds to changes in the ObjectState topic and pushes to ClientRepresentations.
-5. Updates - Listens to the ClientRepresentations topic and pushes to all connected clients over Websocket.
+5. Updates - Listens to the ClientRepresentations topic and pushes to all connected clients over Websocket.  Externally available.
 6. Geometry Kernel - Hosts an instance of OpenCASCADE, for use by Representations and Operational Services
+7. Operations - Most actual business logic (Object definitions, update logic, etc.) occurs here.  It has no caches and no state, it is purely functional.  It calls out to the Geometry Kernel, but no other services.
+8. Submit - Takes a set of changes as inputs, then gets the list of downstream objects from Dependencies.  It calls out to Operations to recalculate the updated state of all downstream objects, then submits all changes to the ObjectState topic.  
+9. Api - Depends on all other services.  This is the high level orchestration, and is externally available.
+
+# Running the application
+1. Go to ./ui and run `npm run build`.  
+2. Go to this directory and run `docker-compose up -d --build`.  It'll take a while the first time, especially for the geometry kernel.
+3. In a browser, go to localhost:8080.
 
 
 
