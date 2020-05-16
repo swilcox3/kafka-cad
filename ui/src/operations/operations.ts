@@ -56,18 +56,22 @@ function initRenderer(canvas: HTMLCanvasElement) {
     renderer.initialize(canvas)
 }
 
-export function initFile(canvas: HTMLCanvasElement, name: string) {
+export function initFile(canvas: HTMLCanvasElement, name: string, user: string) {
     filename = name;
-    subToFile(name);
+    subToFile(name, user);
     initRenderer(canvas);
     openFile(filename)
 }
 
-export function subToFile(name: string) {
+export function subToFile(name: string, user: string) {
     var sub = {
-        "Subscribe": name
+        "Subscribe": {
+            "filename": name,
+            "user": user
+        }
     };
     var msg = JSON.stringify(sub);
+    console.log("Subscribing to " + msg);
     connection.send(msg);
 }
 
@@ -133,7 +137,7 @@ function handleUpdate(msg: UpdateChangeMsg) {
             renderer.createSymbolDef(id, fileId);
             file_to_sym_def[fileId] = id;
             openFile(fileId);
-            subToFile(fileId);
+            subToFile(fileId, user);
             break;
         case updates.UpdateOutputMsg.OutputCase.MESH:
             var mesh = update.getMesh();

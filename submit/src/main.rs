@@ -10,7 +10,6 @@ use object_state::*;
 mod geom {
     tonic::include_proto!("geom");
 }
-use geom::*;
 
 mod objects {
     tonic::include_proto!("objects");
@@ -73,6 +72,8 @@ impl submit_changes_server::SubmitChanges for SubmitService {
         let mut ops_client = operations_client::OperationsClient::connect(self.ops_url.clone())
             .await
             .map_err(to_status)?;
+        trace!("Connected to services");
+        let file = msg.file.clone();
         let updated = update::update_changes(
             &mut obj_client,
             &mut dep_client,
@@ -83,7 +84,9 @@ impl submit_changes_server::SubmitChanges for SubmitService {
             msg.changes,
         )
         .await?;
-        let offsets = produce::submit_changes(&self.broker, &self.topic, updated).await;
+        debug!("Updated: {:?}", updated);
+        let offsets = produce::submit_changes(&self.broker, &self.topic, &file, updated).await;
+        debug!("Submitted: {:?}", offsets);
         Ok(Response::new(SubmitChangesOutput { offsets }))
     }
 }

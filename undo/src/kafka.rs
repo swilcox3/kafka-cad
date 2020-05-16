@@ -61,6 +61,7 @@ async fn handle_stream(
     while let Some(message) = message_stream.next().await {
         match message {
             Ok(m) => {
+                info!("Got message");
                 if let Err(e) = handle_message(redis_conn, &m).await {
                     error!("{}", e);
                 }

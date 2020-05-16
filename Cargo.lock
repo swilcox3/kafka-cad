@@ -342,6 +342,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "api_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "futures-core",
+ "futures-util",
+ "log",
+ "prost",
+ "tonic",
+ "tonic-build",
+]
+
+[[package]]
 name = "approx"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2378,13 +2392,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "test_producer"
+name = "test_undo_redo"
 version = "0.1.0"
 dependencies = [
- "prost",
+ "anyhow",
+ "api_client",
+ "env_logger",
+ "log",
  "tokio",
- "tonic",
- "tonic-build",
  "uuid",
 ]
 

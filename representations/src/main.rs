@@ -43,9 +43,15 @@ pub enum RepresentationError {
     ProstEncodeError(#[from] prost::EncodeError),
     #[error("Prost decode error: {0}")]
     ProstDecodeError(#[from] prost::DecodeError),
+    #[error("No change type set")]
+    NoChangeType,
 }
 
-async fn call_service(ops_url: String, object: ChangeMsg) -> Result<Option<UpdateOutputMsg>, RepresentationError> {
+async fn call_service(
+    ops_url: String,
+    object: ChangeMsg,
+) -> Result<Option<UpdateOutputMsg>, RepresentationError> {
+    debug!("Connecting to ops on {:?}", ops_url);
     let mut client = operations::operations_client::OperationsClient::connect(ops_url).await?;
     let mut representation = client
         .client_representation(Request::new(ClientRepresentationInput {
@@ -64,9 +70,24 @@ pub async fn calc_representation(
     msg: &[u8],
 ) -> Result<(), RepresentationError> {
     let change = object_state::ChangeMsg::decode(msg)?;
+    debug!("Got change: {:?}", change);
+    let obj_id = match &change.change_type {
+        Some(change_msg::ChangeType::Add(object))
+        | Some(change_msg::ChangeType::Modify(object)) => object.id.clone(),
+        Some(change_msg::ChangeType::Delete(msg)) => msg.id.clone(),
+        None => return Err(RepresentationError::NoChangeType),
+    };
+    let user = change.user.clone();
     let repr_opt = call_service(ops_url, change).await?;
+    info!("Got representation: {:?}", repr_opt);
     if let Some(repr) = repr_opt {
-        produce::submit_representations(broker, topic, file, repr).await?;
+        let update_change = UpdateChangeMsg {
+            file: String::from(file),
+            user: user,
+            obj_id,
+            update: Some(repr),
+        };
+        produce::submit_representations(broker, topic, file, update_change).await?;
     }
     Ok(())
 }

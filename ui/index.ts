@@ -6,6 +6,7 @@ window.addEventListener('DOMContentLoaded', () => {
   console.log(connection);
   ops.setConnection(connection).then(() => {
     var file = "00000003-0003-0003-0003-000000000003";
-    ops.initFile(document.getElementById('renderCanvas') as HTMLCanvasElement, file);
+    console.log("HI!");
+    ops.initFile(document.getElementById('renderCanvas') as HTMLCanvasElement, file, user);
   });
 });

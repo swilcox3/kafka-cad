@@ -51,10 +51,6 @@ fn ref_msg(owner: &RefIdMsg, other: &RefIdMsg) -> ReferenceMsg {
     ReferenceMsg {
         owner: Some(owner.clone()),
         other: Some(other.clone()),
-        update_type: Some(reference_msg::UpdateType::Equals(UpdateTypeEqualsMsg {
-            owner_index: 0,
-            other_index: 0,
-        })),
     }
 }
 
@@ -73,12 +69,10 @@ fn opt_ref_msg(owner: &RefIdMsg, other: &RefIdMsg) -> OptionReferenceMsg {
 
 fn add_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
     let msg = ChangeMsg {
-        id,
         user: "Doesn't matter".to_string(),
         change_type: Some(ChangeType::Add(ObjectMsg {
-            obj_type: String::from("test"),
+            id,
             dependencies: Some(DependenciesMsg { references }),
-            results: None,
             obj_data: Vec::new(),
         })),
     };
@@ -89,12 +83,10 @@ fn add_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
 
 fn modify_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
     let msg = ChangeMsg {
-        id,
         user: "Doesn't matter".to_string(),
         change_type: Some(ChangeType::Modify(ObjectMsg {
-            obj_type: String::from("test"),
+            id,
             dependencies: Some(DependenciesMsg { references }),
-            results: None,
             obj_data: Vec::new(),
         })),
     };
@@ -105,9 +97,8 @@ fn modify_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8>
 
 fn delete_change_msg(id: String) -> Vec<u8> {
     let msg = ChangeMsg {
-        id,
         user: "Doesn't matter".to_string(),
-        change_type: Some(ChangeType::Delete(DeleteMsg {})),
+        change_type: Some(ChangeType::Delete(DeleteMsg { id })),
     };
     let mut bytes = Vec::new();
     msg.encode(&mut bytes).unwrap();

@@ -1,6 +1,6 @@
 use super::*;
-use std::collections::HashSet;
 use indexmap::IndexMap;
+use std::collections::HashSet;
 
 fn extract_info(changes: Vec<ChangeMsg>) -> (Vec<RefIdMsg>, IndexMap<String, ChangeMsg>) {
     let mut ref_ids = Vec::new();
@@ -120,9 +120,15 @@ pub async fn update_changes(
     changes: Vec<ChangeMsg>,
 ) -> Result<Vec<ChangeMsg>, tonic::Status> {
     let (ref_ids, mut objects) = extract_info(changes);
+    trace!("Got ref ids: {:?}", ref_ids);
     let refers = get_all_dependencies(dep_client, &file, offset, ref_ids).await?;
+    trace!("Got references: {:?}", refers);
     let obj_ids = get_obj_ids_to_fetch(&refers, &objects);
-    let obj_vec = get_objects_to_update(obj_client, &file, offset, user, obj_ids).await?;
+    trace!("Fetching objects: {:?}", obj_ids);
+    let mut fetched_objs = get_objects_to_update(obj_client, &file, offset, user, obj_ids).await?;
+    let mut obj_vec: Vec<ChangeMsg> = objects.drain(..).map(|(_, val)| val).collect();
+    obj_vec.append(&mut fetched_objs);
+    debug!("Updating objects: {:?}", obj_vec);
     let results = update(ops_client, refers, obj_vec).await?;
     Ok(results)
 }

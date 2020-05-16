@@ -8,13 +8,18 @@ pub async fn submit_representations(
     brokers: &str,
     topic_name: &str,
     file: &str,
-    msg: UpdateOutputMsg,
+    msg: UpdateChangeMsg,
 ) -> Result<(), RepresentationError> {
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("message.timeout.ms", "5000")
         .create()
         .expect("Producer creation error");
+
+    info!(
+        "Sending representation to {:?} for file {:?}",
+        topic_name, file
+    );
 
     // This loop is non blocking: all messages will be sent one after the other, without waiting
     // for the results.

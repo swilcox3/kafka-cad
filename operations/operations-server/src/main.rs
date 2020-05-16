@@ -70,10 +70,11 @@ impl operations_server::Operations for OperationsService {
     ) -> Result<Response<ClientRepresentationOutput>, Status> {
         let repr_msg = request.get_ref();
         info!("Client representation: {:?}", repr_msg);
-        let mut geom_conn =
-            new_geom_conn(self.geom_url.clone())
-                .await
-                .map_err(to_status)?;
+        debug!("Connecting on {:?}", self.geom_url);
+        let mut geom_conn = new_geom_conn(self.geom_url.clone())
+            .await
+            .map_err(to_status)?;
+        trace!("Connected to geom kernel");
         let changes = from_change_msgs(&repr_msg.objects)?;
         let mut outputs = Vec::new();
         for change in changes {

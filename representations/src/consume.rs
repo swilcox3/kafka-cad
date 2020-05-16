@@ -1,6 +1,5 @@
 use crate::*;
 use futures::StreamExt;
-use log::*;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{CommitMode, Consumer};
@@ -21,6 +20,7 @@ async fn handle_message<M: Message>(
         .key()
         .ok_or(RepresentationError::FileError { partition, offset })?;
     let file = std::str::from_utf8(file_bytes)?;
+    info!("Got message from file {:?}", file);
     calc_representation(broker, repr_topic, file, ops_url, bytes).await?;
     Ok(())
 }
@@ -42,6 +42,7 @@ async fn handle_stream(
         .create()?;
 
     consumer.subscribe(&[obj_topic])?;
+    info!("Subscribed to {:?}", obj_topic);
 
     // consumer.start() returns a stream. The stream can be used ot chain together expensive steps,
     // such as complex computations on a thread pool or asynchronous IO.
@@ -50,6 +51,7 @@ async fn handle_stream(
     while let Some(message) = message_stream.next().await {
         match message {
             Ok(m) => {
+                info!("Got message");
                 if let Err(e) = handle_message(brokers, repr_topic, ops_url.clone(), &m).await {
                     error!("{}", e);
                 }
@@ -70,9 +72,10 @@ pub async fn start_consume_stream(
     group_id: String,
     obj_topic: String,
     repr_topic: String,
-    ops_url: String
+    ops_url: String,
 ) {
     std::thread::sleep(std::time::Duration::from_secs(30));
+    info!("Start consuming stream on topic {:?}", obj_topic);
     if let Err(e) = handle_stream(&brokers, &group_id, &obj_topic, &repr_topic, ops_url).await {
         error!("{}", e);
     }

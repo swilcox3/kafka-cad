@@ -28,6 +28,7 @@ async fn handle_message<M: Message>(m: &M) -> Result<(), UpdateError> {
         .key()
         .ok_or(UpdateError::FileError { partition, offset })?;
     let file = std::str::from_utf8(file_bytes)?;
+    info!("Got msg from file: {:?}", file);
     if let Some(mut entry) = FILE_TO_CHANNEL_MAP.get_mut(file) {
         let mut to_delete = Vec::new();
         let mut index = 0usize;
@@ -46,6 +47,7 @@ async fn handle_message<M: Message>(m: &M) -> Result<(), UpdateError> {
             index += 1;
         }
         for index in to_delete.into_iter().rev() {
+            info!("Deleting channel");
             entry.value_mut().remove(index);
         }
     }

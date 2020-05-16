@@ -1,0 +1,15 @@
+[package]
+name = "test_undo_redo"
+version = "0.1.0"
+authors = ["Scot Wilcox <wilcox.scot@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.26"
+log = "0.4.8"
+env_logger = "0.7.1"
+api_client = {path = "../api_client"}
+uuid = {version = "0.8.1", features = ["serde", "v4"]}
+tokio = { version = "0.2", features = ["macros", "sync", "stream", "time"] }

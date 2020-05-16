@@ -69,6 +69,7 @@ async fn push_undo_event(
     event: &str,
 ) -> Result<(), UndoError> {
     let undo_stack = undo_stack(file, user);
+    debug!("Pushing to undo stack: {:?}", undo_stack);
     redis_conn.rpush(undo_stack, event).await?;
     Ok(())
 }
@@ -123,6 +124,7 @@ pub async fn update_undo_cache(
     msg_bytes: &[u8],
 ) -> Result<(), UndoError> {
     let msg = ChangeMsg::decode(msg_bytes)?;
+    info!("Got msg: {:?}", msg);
     let user = msg.user;
     let (obj_id, change_type) = match msg.change_type {
         Some(change_msg::ChangeType::Add(msg)) => (msg.id, UndoChangeType::Add),
@@ -131,6 +133,7 @@ pub async fn update_undo_cache(
         None => (String::new(), UndoChangeType::NotSet),
     };
     let undo_stack = undo_stack(file, &user);
+    info!("Updating undo stack: {:?}", undo_stack);
     let cur_event: Option<String> = redis_conn.lindex(undo_stack, -1).await?;
     match cur_event {
         Some(event) => {

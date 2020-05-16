@@ -56,7 +56,7 @@ services:
         - BROKER=kafka1
         - GROUP=object-group
         - TOPIC=ObjectState
-        - RUST_LOG=info
+        - RUST_LOG=objects
   redis-deps:
     image: "redis:alpine"
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
@@ -76,7 +76,7 @@ services:
         - BROKER=kafka1
         - GROUP=dep-group
         - TOPIC=ObjectState
-        - RUST_LOG=info
+        - RUST_LOG=dependencies
   submit:
     build: 
         context: ./
@@ -87,12 +87,12 @@ services:
         - kafka1
     environment: 
         - RUN_URL=0.0.0.0:6000
-        - OBJECTS_URL=objects
-        - DEPENDENCIES_URL=dependencies
-        - OPERATIONS_URL=operations
+        - OBJECTS_URL=http://objects:6000
+        - DEPENDENCIES_URL=http://dependencies:6000
+        - OPERATIONS_URL=http://operations:6000
         - BROKER=kafka1
         - TOPIC=ObjectState
-        - RUST_LOG=info
+        - RUST_LOG=submit
   redis-undo:
     image: "redis:alpine"
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
@@ -110,11 +110,11 @@ services:
     environment: 
         - RUN_URL=0.0.0.0:6000
         - REDIS_URL=redis://redis-undo:6379
-        - OBJECTS_URL=objects
+        - OBJECTS_URL=http://objects:6000
         - BROKER=kafka1
         - GROUP=undoGroup
         - TOPIC=ObjectState
-        - RUST_LOG=info
+        - RUST_LOG=undo
   geom-kernel:
     build:
         context: ./
@@ -125,8 +125,8 @@ services:
         dockerfile: operations/operations-server/Cargo.toml
     environment: 
         - RUN_URL=0.0.0.0:6000
-        - GEOM_URL=geom-kernel
-        - RUST_LOG=info
+        - GEOM_URL=http://geom-kernel:5000
+        - RUST_LOG=operations_server,operations,obj_traits,obj_defs
   representations:
     build: 
         context: ./
@@ -138,7 +138,8 @@ services:
         - GROUP=reprGroup
         - OBJ_TOPIC=ObjectState
         - REPR_TOPIC=ClientRepresentation
-        - RUST_LOG=info
+        - OPS_URL=http://operations:6000
+        - RUST_LOG=representations
   updates:
     build: 
         context: ./
@@ -150,7 +151,7 @@ services:
         - BROKER=kafka1
         - GROUP=updatesGroup
         - TOPIC=ClientRepresentation
-        - RUST_LOG=info
+        - RUST_LOG=updates
     ports:
       - "7000:6000"
   api:
@@ -163,10 +164,10 @@ services:
       - undo
     environment: 
         - RUN_URL=0.0.0.0:6000
-        - UNDO_URL=undo
-        - OPS_URL=operations
-        - SUBMIT_URL=submit
-        - RUST_LOG=info
+        - UNDO_URL=http://undo:6000
+        - OPS_URL=http://operations:6000
+        - SUBMIT_URL=http://submit:6000
+        - RUST_LOG=api
     ports:
       - "8080:6000"
   ui-server:
@@ -174,7 +175,7 @@ services:
         context: ./
         dockerfile: ui-server/Cargo.toml
     environment:
-        - RUST_LOG=info
+        - RUST_LOG=ui_server
     volumes:
         - type: bind
           source: ./ui/dist
