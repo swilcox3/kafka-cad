@@ -1,7 +1,7 @@
-use log::*;
 use thiserror::Error;
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
+use tracing::*;
 
 mod cache;
 mod invert;
@@ -137,7 +137,9 @@ impl undo_server::Undo for UndoService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
+    tracing_subscriber::FmtSubscriber::builder()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
     let redis_url = std::env::var("REDIS_URL").unwrap();
     let obj_url = std::env::var("OBJECTS_URL").unwrap();
@@ -165,6 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             info!("Running on {:?}", run_url);
             Server::builder()
+                .trace_fn(|_| tracing::info_span!("undo"))
                 .add_service(svc)
                 .serve(run_url)
                 .await

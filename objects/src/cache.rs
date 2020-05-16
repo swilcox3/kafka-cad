@@ -191,12 +191,10 @@ mod tests {
         let file = Uuid::new_v4().to_string();
         let user = Uuid::new_v4().to_string();
         let change_1 = ChangeMsg {
-            id: id.clone(),
             user: user.clone(),
             change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
-                obj_url: String::from("test"),
+                id: id.clone(),
                 dependencies: None,
-                results: None,
                 obj_data: vec![],
             })),
         };
@@ -212,12 +210,10 @@ mod tests {
         );
 
         let change_2 = ChangeMsg {
-            id: id.clone(),
             user: user.clone(),
             change_type: Some(change_msg::ChangeType::Modify(ObjectMsg {
-                obj_url: String::from("test"),
+                id: id.clone(),
                 dependencies: None,
-                results: None,
                 obj_data: String::from("modified").into_bytes(),
             })),
         };
@@ -233,9 +229,8 @@ mod tests {
         );
 
         let change_3 = ChangeMsg {
-            id: id.clone(),
             user: user.clone(),
-            change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {})),
+            change_type: Some(change_msg::ChangeType::Delete(DeleteMsg { id: id.clone() })),
         };
         let mut change_3_bytes = Vec::new();
         change_3.encode(&mut change_3_bytes).unwrap();

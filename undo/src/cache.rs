@@ -1,7 +1,6 @@
 //! The object cache for a file maps objIDs to a list of the last X number of changes to that object.
 //! X is configurable.
 
-use log::*;
 use prost::Message;
 use redis::aio::MultiplexedConnection;
 use redis::AsyncCommands;
@@ -18,7 +17,7 @@ fn redo_stack(file: &str, user: &str) -> String {
     format!("{}:{}:redo", file, user)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum UndoChangeType {
     Add,
     Modify,
@@ -26,7 +25,7 @@ pub enum UndoChangeType {
     NotSet,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct UndoEntry {
     pub offset: i64,
     pub obj_id: String,
@@ -117,6 +116,26 @@ async fn pop_redo_event(
     }
 }
 
+async fn update_undo_event(
+    redis_conn: &mut MultiplexedConnection,
+    file: &str,
+    user: String,
+    offset: i64,
+    obj_id: String,
+    change_type: UndoChangeType,
+) -> Result<(), UndoError> {
+    let undo_stack = undo_stack(file, &user);
+    info!("Updating undo stack: {:?}", undo_stack);
+    let cur_event: Option<String> = redis_conn.lindex(undo_stack, -1).await?;
+    match cur_event {
+        Some(event) => {
+            add_undo_entry(redis_conn, &event, obj_id, offset, change_type).await?;
+            Ok(())
+        }
+        None => Err(UndoError::NoUndoEvent(user, String::from(file))),
+    }
+}
+
 pub async fn update_undo_cache(
     redis_conn: &mut MultiplexedConnection,
     file: &str,
@@ -132,16 +151,8 @@ pub async fn update_undo_cache(
         Some(change_msg::ChangeType::Delete(msg)) => (msg.id, UndoChangeType::Delete),
         None => (String::new(), UndoChangeType::NotSet),
     };
-    let undo_stack = undo_stack(file, &user);
-    info!("Updating undo stack: {:?}", undo_stack);
-    let cur_event: Option<String> = redis_conn.lindex(undo_stack, -1).await?;
-    match cur_event {
-        Some(event) => {
-            add_undo_entry(redis_conn, &event, obj_id, offset, change_type).await?;
-            Ok(())
-        }
-        None => Err(UndoError::NoUndoEvent(user, String::from(file))),
-    }
+    update_undo_event(redis_conn, file, user, offset, obj_id, change_type).await?;
+    Ok(())
 }
 
 pub async fn begin_undo_event(
@@ -174,4 +185,51 @@ pub async fn redo(
     push_undo_event(redis_conn, file, user, &event).await?;
     let list = get_undo_event_list(redis_conn, &event).await?;
     Ok(list)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    pub async fn test_get_conn() -> MultiplexedConnection {
+        let env_opt = std::env::var("REDIS_URL");
+        let redis_url = if let Ok(url) = env_opt {
+            url
+        } else {
+            String::from("redis://127.0.0.1:6379")
+        };
+        let client = redis::Client::open(redis_url).unwrap();
+        let (conn, fut) = client.get_multiplexed_async_connection().await.unwrap();
+        tokio::spawn(fut);
+        conn
+    }
+
+    #[tokio_macros::test]
+    async fn test_cache() {
+        let mut conn = test_get_conn().await;
+        let file = Uuid::new_v4().to_string();
+        let user = Uuid::new_v4().to_string();
+        let obj_1 = Uuid::new_v4().to_string();
+        begin_undo_event(&mut conn, &file, &user).await.unwrap();
+        let offset = 1;
+        update_undo_event(
+            &mut conn,
+            &file,
+            user.clone(),
+            offset,
+            obj_1.clone(),
+            UndoChangeType::Add,
+        )
+        .await
+        .unwrap();
+        let event = undo(&mut conn, &file, &user).await.unwrap();
+        assert_eq!(event.len(), 1);
+        let answer = UndoEntry {
+            offset,
+            obj_id: obj_1,
+            change_type: UndoChangeType::Add,
+        };
+        assert_eq!(event[0], answer);
+    }
 }

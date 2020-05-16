@@ -337,8 +337,8 @@ dependencies = [
  "prost",
  "serde_json",
  "tokio",
- "tonic",
- "tonic-build",
+ "tonic 0.1.1",
+ "tonic-build 0.1.1",
 ]
 
 [[package]]
@@ -351,8 +351,8 @@ dependencies = [
  "futures-util",
  "log",
  "prost",
- "tonic",
- "tonic-build",
+ "tonic 0.1.1",
+ "tonic-build 0.1.1",
 ]
 
 [[package]]
@@ -735,8 +735,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-macros",
- "tonic",
- "tonic-build",
+ "tonic 0.1.1",
+ "tonic-build 0.1.1",
  "uuid",
 ]
 
@@ -1353,6 +1353,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
 
 [[package]]
+name = "matchers"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f099785f7595cc4b4553a174ce30dd7589ef93391ff414dbb67f62392b9e0ce1"
+dependencies = [
+ "regex-automata",
+]
+
+[[package]]
 name = "matches"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1535,8 +1544,8 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
- "tonic",
- "tonic-build",
+ "tonic 0.1.1",
+ "tonic-build 0.1.1",
 ]
 
 [[package]]
@@ -1554,7 +1563,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "tonic",
+ "tonic 0.1.1",
  "typetag",
  "uuid",
 ]
@@ -1578,8 +1587,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-macros",
- "tonic",
- "tonic-build",
+ "tonic 0.1.1",
+ "tonic-build 0.1.1",
  "uuid",
 ]
 
@@ -1650,8 +1659,8 @@ dependencies = [
  "serde_json",
  "structopt",
  "tokio",
- "tonic",
- "tonic-build",
+ "tonic 0.1.1",
+ "tonic-build 0.1.1",
 ]
 
 [[package]]
@@ -2099,6 +2108,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "regex-automata"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae1ded71d66a4a97f5e961fd0cb25a5f366a42a41570d16a763a69c092c26ae4"
+dependencies = [
+ "byteorder",
+ "regex-syntax",
+]
+
+[[package]]
 name = "regex-syntax"
 version = "0.6.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2125,8 +2144,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-macros",
- "tonic",
- "tonic-build",
+ "tonic 0.1.1",
+ "tonic-build 0.1.1",
  "uuid",
 ]
 
@@ -2253,6 +2272,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2579985fda508104f7587689507983eadd6a6e84dd35d6d115361f530916fa0d"
 
 [[package]]
+name = "sharded-slab"
+version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06d5a3f5166fb5b42a5439f2eee8b9de149e235961e3eb21c5808fc3ea17ff3e"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2329,8 +2357,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-macros",
- "tonic",
- "tonic-build",
+ "tonic 0.1.1",
+ "tonic-build 0.1.1",
  "uuid",
 ]
 
@@ -2576,10 +2604,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "tonic"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4afef9ce97ea39593992cf3fa00ff33b1ad5eb07665b31355df63a690e38c736"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "base64 0.11.0",
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "http",
+ "http-body",
+ "hyper",
+ "percent-encoding 2.1.0",
+ "pin-project",
+ "prost",
+ "prost-derive",
+ "tokio",
+ "tokio-util 0.3.1",
+ "tower",
+ "tower-balance",
+ "tower-load",
+ "tower-make",
+ "tower-service",
+ "tracing",
+ "tracing-futures",
+]
+
+[[package]]
 name = "tonic-build"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0436413ba71545bcc6c2b9a0f9d78d72deb0123c6a75ccdfe7c056f9930f5e52"
+dependencies = [
+ "proc-macro2",
+ "prost-build",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "tonic-build"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71d8d21cb568e802d77055ab7fcd43f0992206de5028de95c8d3a41118d32e8e"
 dependencies = [
  "proc-macro2",
  "prost-build",
@@ -2767,9 +2837,9 @@ dependencies = [
 
 [[package]]
 name = "tracing"
-version = "0.1.13"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1721cc8cf7d770cc4257872507180f35a4797272f5962f24c806af9e7faf52ab"
+checksum = "a7c6b59d116d218cb2d990eb06b77b64043e0268ef7323aae63d8b30ae462923"
 dependencies = [
  "cfg-if",
  "log",
@@ -2779,10 +2849,11 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fbad39da2f9af1cae3016339ad7f2c7a9e870f12e8fd04c4fd7ef35b30c0d2b"
+checksum = "99bbad0de3fd923c9c3232ead88510b783e5a4d16a6154adffa3d53308de984c"
 dependencies = [
+ "proc-macro2",
  "quote",
  "syn",
 ]
@@ -2804,6 +2875,47 @@ checksum = "58b0b7fd92dc7b71f29623cc6836dd7200f32161a2313dd78be233a8405694f6"
 dependencies = [
  "pin-project",
  "tracing",
+]
+
+[[package]]
+name = "tracing-log"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e0f8c7178e13481ff6765bd169b33e8d554c5d2bbede5e32c356194be02b9b9"
+dependencies = [
+ "lazy_static",
+ "log",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-serde"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6ccba2f8f16e0ed268fc765d9b7ff22e965e7185d32f8f1ec8294fe17d86e79"
+dependencies = [
+ "serde",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d53c40489aa69c9aed21ff483f26886ca8403df33bdc2d2f87c60c1617826d2"
+dependencies = [
+ "ansi_term",
+ "chrono",
+ "lazy_static",
+ "matchers",
+ "regex",
+ "serde",
+ "serde_json",
+ "sharded-slab",
+ "smallvec",
+ "tracing-core",
+ "tracing-log",
+ "tracing-serde",
 ]
 
 [[package]]
@@ -2917,9 +3029,7 @@ name = "undo"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "env_logger",
  "futures",
- "log",
  "prost",
  "rdkafka",
  "redis",
@@ -2927,8 +3037,10 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-macros",
- "tonic",
- "tonic-build",
+ "tonic 0.2.1",
+ "tonic-build 0.2.0",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
