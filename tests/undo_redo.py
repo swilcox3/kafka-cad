@@ -37,6 +37,6 @@ if __name__ == '__main__':
     subprocess.run(["cargo", "build", "--release",
                     "-p", "test_undo_redo"], check=True)
     webbrowser.open_new_tab("http://127.0.0.1/index.html")
-    time.sleep(5)
+    time.sleep(2)
 
     run(args.num)

@@ -1,7 +1,9 @@
+use opentelemetry::api::{B3Propagator, HttpTextFormat};
 use thiserror::Error;
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
 use tracing::*;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 mod cache;
 mod invert;
@@ -137,15 +139,15 @@ impl undo_server::Undo for UndoService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::FmtSubscriber::builder()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
+    let jaeger_url = std::env::var("JAEGER_URL").unwrap();
     let redis_url = std::env::var("REDIS_URL").unwrap();
     let obj_url = std::env::var("OBJECTS_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let group = std::env::var("GROUP").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
+    trace_lib::init_tracer(&jaeger_url, "undo")?;
+    let propagator = B3Propagator::new(true);
     info!("redis_url: {:?}", redis_url);
     let client = redis::Client::open(redis_url).unwrap();
     let now = std::time::SystemTime::now();
@@ -167,7 +169,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             info!("Running on {:?}", run_url);
             Server::builder()
-                .trace_fn(|_| tracing::info_span!("undo"))
+                .trace_fn(|headers| {
+                    /*let mut map = std::collections::HashMap::new();
+                    for (key, val) in headers {
+                        map.insert(key.as_str(), val.to_str().unwrap().to_string());
+                    }*/
+                    let app_root = tracing::info_span!("undo");
+                    /*let parent_context = propagator.extract_with_context(&app_root.context(), &map);
+                    app_root.set_parent(&parent_context);*/
+                    app_root
+                })
                 .add_service(svc)
                 .serve(run_url)
                 .await

@@ -331,14 +331,16 @@ checksum = "d9a60d744a80c30fcb657dfe2c1b22bcb3e814c1a1e3674f32bf5820b570fbff"
 name = "api"
 version = "0.1.0"
 dependencies = [
- "env_logger",
  "futures",
- "log",
+ "opentelemetry",
  "prost",
  "serde_json",
  "tokio",
- "tonic 0.1.1",
- "tonic-build 0.1.1",
+ "tonic 0.2.1",
+ "tonic-build 0.2.0",
+ "trace_lib",
+ "tracing",
+ "tracing-opentelemetry",
 ]
 
 [[package]]
@@ -1216,6 +1218,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "integer-encoding"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f4ebd0bd29be0f11973e9b3e219005661042a019fd757798c36a47c87852625"
+
+[[package]]
 name = "inventory"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1632,6 +1640,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "opentelemetry"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1dbc1028f1f215373e28473238527c8799fbe88c58bae255585602c7316fa30"
+dependencies = [
+ "futures",
+ "lazy_static",
+ "percent-encoding 2.1.0",
+ "pin-project",
+ "prometheus",
+ "rand 0.7.3",
+]
+
+[[package]]
+name = "opentelemetry-jaeger"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4da8b4162e8ae52c894f23895477f0d0340d34d8d35c367edf53de83adb1a6df"
+dependencies = [
+ "opentelemetry",
+ "thrift",
+]
+
+[[package]]
 name = "operations"
 version = "0.1.0"
 dependencies = [
@@ -1661,6 +1693,15 @@ dependencies = [
  "tokio",
  "tonic 0.1.1",
  "tonic-build 0.1.1",
+]
+
+[[package]]
+name = "ordered-float"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18869315e81473c951eb56ad5558bbc56978562d3ecfb87abb7a1e944cea4518"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -1810,6 +1851,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "prometheus"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5567486d5778e2c6455b1b90ff1c558f29e751fc018130fa182e15828e728af1"
+dependencies = [
+ "cfg-if",
+ "fnv",
+ "lazy_static",
+ "protobuf",
+ "quick-error",
+ "spin",
+]
+
+[[package]]
 name = "prost"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1859,6 +1914,12 @@ dependencies = [
  "bytes",
  "prost",
 ]
+
+[[package]]
+name = "protobuf"
+version = "2.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e86d370532557ae7573551a1ec8235a0f8d6cb276c7c9e6aa490b511c447485"
 
 [[package]]
 name = "quick-error"
@@ -2315,6 +2376,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2476,6 +2543,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d050e60b33d41c19108b32cea32164033a9013fe3b46cbd4457559bfbf77afaa"
 dependencies = [
  "num_cpus",
+]
+
+[[package]]
+name = "thrift"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c6d965454947cc7266d22716ebfd07b18d84ebaf35eec558586bbb2a8cb6b5b"
+dependencies = [
+ "byteorder",
+ "integer-encoding",
+ "log",
+ "ordered-float",
+ "threadpool",
 ]
 
 [[package]]
@@ -2836,6 +2916,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "trace_lib"
+version = "0.1.0"
+dependencies = [
+ "opentelemetry",
+ "opentelemetry-jaeger",
+ "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2886,6 +2977,19 @@ dependencies = [
  "lazy_static",
  "log",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-opentelemetry"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d79fdf3c82e6ea14c0f54cc9418aef57252150c6da0bc5f18553f0136f0dcd31"
+dependencies = [
+ "opentelemetry",
+ "rand 0.7.3",
+ "tracing",
+ "tracing-core",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3030,6 +3134,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "futures",
+ "opentelemetry",
  "prost",
  "rdkafka",
  "redis",
@@ -3039,8 +3144,9 @@ dependencies = [
  "tokio-macros",
  "tonic 0.2.1",
  "tonic-build 0.2.0",
+ "trace_lib",
  "tracing",
- "tracing-subscriber",
+ "tracing-opentelemetry",
  "uuid",
 ]
 

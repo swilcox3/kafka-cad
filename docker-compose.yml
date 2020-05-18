@@ -37,6 +37,11 @@ services:
       - "9000:9000"
     environment:
       ZOOKEEPER_HOSTS: "zoo1:2181"
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "6831/udp"
+      - "16686:16686"
   redis-objects:
     image: "redis:alpine"
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
@@ -109,6 +114,7 @@ services:
         - kafka1
     environment: 
         - RUN_URL=0.0.0.0:6000
+        - JAEGER_URL=jaeger:6831
         - REDIS_URL=redis://redis-undo:6379
         - OBJECTS_URL=http://objects:6000
         - BROKER=kafka1
@@ -164,6 +170,7 @@ services:
       - undo
     environment: 
         - RUN_URL=0.0.0.0:6000
+        - JAEGER_URL=jaeger:6831
         - UNDO_URL=http://undo:6000
         - OPS_URL=http://operations:6000
         - SUBMIT_URL=http://submit:6000
