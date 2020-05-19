@@ -1,9 +1,7 @@
-use opentelemetry::api::{B3Propagator, HttpTextFormat};
-use tonic::metadata::MetadataValue;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
+use trace_lib::TracedRequest;
 use tracing::*;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 mod api {
     tonic::include_proto!("api");
@@ -63,7 +61,6 @@ struct ApiService {
     undo_url: String,
     ops_url: String,
     submit_url: String,
-    propagator: B3Propagator,
 }
 
 #[tonic::async_trait]
@@ -73,21 +70,18 @@ impl api_server::Api for ApiService {
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
         let msg = request.into_inner();
-        let span = tracing::info_span!("begin_undo_event");
         info!("Begin Undo Event: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
             .await
             .map_err(unavailable)?;
-        let mut req = Request::new(undo::BeginUndoEventInput {
-            file: msg.file,
-            user: msg.user,
-        });
-        let mut map = std::collections::HashMap::new();
-        let metadata = req.metadata_mut();
-        self.propagator.inject_context(&span.context(), &mut map);
-        for (key, val) in map {
-            metadata.insert(key, MetadataValue::from_str(&val).unwrap());
-        }
+        let req = TracedRequest::new(
+            undo::BeginUndoEventInput {
+                file: msg.file,
+                user: msg.user,
+            },
+            "api",
+            "begin_undo_event",
+        );
         undo_client.begin_undo_event(req).await?;
         Ok(Response::new(BeginUndoEventOutput {}))
     }
@@ -235,12 +229,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ops_url = std::env::var("OPS_URL").unwrap().parse().unwrap();
     let submit_url = std::env::var("SUBMIT_URL").unwrap().parse().unwrap();
     trace_lib::init_tracer(&jaeger_url, "api")?;
-    let propagator = opentelemetry::api::B3Propagator::new(true);
     let svc = api_server::ApiServer::new(ApiService {
         undo_url,
         ops_url,
         submit_url,
-        propagator,
     });
     info!("Running on {:?}", run_url);
     Server::builder()

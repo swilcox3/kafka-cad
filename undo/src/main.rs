@@ -1,9 +1,8 @@
-use opentelemetry::api::{B3Propagator, HttpTextFormat};
 use thiserror::Error;
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
+use trace_lib::propagate_trace;
 use tracing::*;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 mod cache;
 mod invert;
@@ -79,8 +78,8 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
+        let _span = propagate_trace(&request, "undo", "begin_undo_event");
         let msg = request.get_ref();
-        info!("Begin Undo Event: {:?}", msg);
         let mut redis_conn = self.redis_conn.clone();
         cache::begin_undo_event(&mut redis_conn, &msg.file, &msg.user)
             .await
@@ -92,8 +91,8 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
+        let _span = propagate_trace(&request, "undo", "undo_latest");
         let msg = request.get_ref();
-        info!("Undo Latest: {:?}", msg);
         let mut redis_conn = self.redis_conn.clone();
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
             .await
@@ -116,8 +115,8 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<RedoLatestInput>,
     ) -> Result<Response<RedoLatestOutput>, Status> {
+        let _span = propagate_trace(&request, "undo", "redo_latest");
         let msg = request.get_ref();
-        info!("Redo Latest: {:?}", msg);
         let mut redis_conn = self.redis_conn.clone();
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
             .await
@@ -147,7 +146,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let group = std::env::var("GROUP").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
     trace_lib::init_tracer(&jaeger_url, "undo")?;
-    let propagator = B3Propagator::new(true);
     info!("redis_url: {:?}", redis_url);
     let client = redis::Client::open(redis_url).unwrap();
     let now = std::time::SystemTime::now();
@@ -169,16 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             info!("Running on {:?}", run_url);
             Server::builder()
-                .trace_fn(|headers| {
-                    /*let mut map = std::collections::HashMap::new();
-                    for (key, val) in headers {
-                        map.insert(key.as_str(), val.to_str().unwrap().to_string());
-                    }*/
-                    let app_root = tracing::info_span!("undo");
-                    /*let parent_context = propagator.extract_with_context(&app_root.context(), &map);
-                    app_root.set_parent(&parent_context);*/
-                    app_root
-                })
+                .trace_fn(|_| tracing::info_span!("undo"))
                 .add_service(svc)
                 .serve(run_url)
                 .await

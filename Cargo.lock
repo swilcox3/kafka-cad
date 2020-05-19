@@ -332,7 +332,6 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "futures",
- "opentelemetry",
  "prost",
  "serde_json",
  "tokio",
@@ -340,7 +339,6 @@ dependencies = [
  "tonic-build 0.2.0",
  "trace_lib",
  "tracing",
- "tracing-opentelemetry",
 ]
 
 [[package]]
@@ -2921,6 +2919,7 @@ version = "0.1.0"
 dependencies = [
  "opentelemetry",
  "opentelemetry-jaeger",
+ "tonic 0.2.1",
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
@@ -3134,7 +3133,6 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "futures",
- "opentelemetry",
  "prost",
  "rdkafka",
  "redis",
@@ -3146,7 +3144,6 @@ dependencies = [
  "tonic-build 0.2.0",
  "trace_lib",
  "tracing",
- "tracing-opentelemetry",
  "uuid",
 ]
 
