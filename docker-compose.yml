@@ -87,8 +87,6 @@ services:
         context: ./
         dockerfile: submit/Cargo.toml
     depends_on: 
-        - objects
-        - dependencies
         - kafka1
     environment: 
         - RUN_URL=0.0.0.0:6000
@@ -109,8 +107,6 @@ services:
         context: ./
         dockerfile: undo/Cargo.toml
     depends_on: 
-        - objects
-        - submit 
         - kafka1
     environment: 
         - RUN_URL=0.0.0.0:6000
@@ -164,10 +160,6 @@ services:
     build: 
         context: ./
         dockerfile: api/Cargo.toml
-    depends_on: 
-      - submit
-      - operations
-      - undo
     environment: 
         - RUN_URL=0.0.0.0:6000
         - JAEGER_URL=jaeger:6831

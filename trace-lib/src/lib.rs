@@ -1,8 +1,7 @@
-use opentelemetry::api::{
-    self, Context, HttpTextFormat, KeyValue, Provider, Span, TraceContextExt, Tracer,
-};
+use opentelemetry::api::{self, Context, HttpTextFormat, Provider, TraceContextExt, Tracer};
 use opentelemetry::global;
 use opentelemetry::sdk;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::prelude::*;
 
 struct TonicMetadataMapCarrier<'a>(&'a tonic::metadata::MetadataMap);
@@ -37,38 +36,22 @@ impl<'a> api::Carrier for TonicMetadataMapCarrierMut<'a> {
 pub struct TracedRequest {}
 
 impl TracedRequest {
-    pub fn new<T>(
-        msg: T,
-        service_name: &'static str,
-        func_name: &'static str,
-    ) -> tonic::Request<T> {
+    pub fn new<T>(msg: T, span: &tracing::Span) -> tonic::Request<T> {
         let mut req = tonic::Request::new(msg);
-        inject_trace(req.metadata_mut(), service_name, func_name);
+        inject_trace(req.metadata_mut(), span);
         req
     }
 }
 
-pub fn inject_trace(
-    headers: &mut tonic::metadata::MetadataMap,
-    service_name: &'static str,
-    func_name: &'static str,
-) {
+pub fn inject_trace(headers: &mut tonic::metadata::MetadataMap, span: &tracing::Span) {
     let propagator = api::TraceContextPropagator::new();
-    let span = global::tracer(service_name).start(func_name);
-    let cx = Context::current_with_span(span);
-    propagator.inject_context(&cx, &mut TonicMetadataMapCarrierMut(headers));
+    propagator.inject_context(&span.context(), &mut TonicMetadataMapCarrierMut(headers));
 }
 
-pub fn propagate_trace<T: std::fmt::Debug>(
-    request: &tonic::Request<T>,
-    service_name: &'static str,
-    func_name: &'static str,
-) -> global::BoxedSpan {
+pub fn propagate_trace(span: &tracing::Span, metadata: &tonic::metadata::MetadataMap) {
     let propagator = api::TraceContextPropagator::new();
-    let parent_cx = propagator.extract(&TonicMetadataMapCarrier(request.metadata()));
-    let span = global::tracer(service_name).start_from_context(func_name, &parent_cx);
-    span.set_attribute(KeyValue::new("msg", format!("{:?}", request)));
-    span
+    let parent_cx = propagator.extract(&TonicMetadataMapCarrier(metadata));
+    span.set_parent(&parent_cx);
 }
 
 pub fn init_tracer(

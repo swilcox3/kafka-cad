@@ -70,6 +70,8 @@ impl api_server::Api for ApiService {
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
         let msg = request.into_inner();
+        let span = info_span!("begin_undo_event");
+        let _enter = span.enter();
         info!("Begin Undo Event: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
             .await
@@ -79,11 +81,19 @@ impl api_server::Api for ApiService {
                 file: msg.file,
                 user: msg.user,
             },
-            "api",
-            "begin_undo_event",
+            &span,
         );
-        undo_client.begin_undo_event(req).await?;
-        Ok(Response::new(BeginUndoEventOutput {}))
+        let resp = undo_client.begin_undo_event(req).await;
+        match resp {
+            Ok(msg) => {
+                info!("Response: {:?}", msg);
+                Ok(Response::new(BeginUndoEventOutput {}))
+            }
+            Err(e) => {
+                error!("Error: {:?}", e);
+                Err(e)
+            }
+        }
     }
 
     async fn undo_latest(
@@ -91,6 +101,8 @@ impl api_server::Api for ApiService {
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
         let msg = request.into_inner();
+        let span = info_span!("undo_latest");
+        let _enter = span.enter();
         info!("Undo Latest: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
             .await
@@ -100,13 +112,14 @@ impl api_server::Api for ApiService {
                 .await
                 .map_err(unavailable)?;
         let prefix = Prefix::new(msg.prefix)?;
-        let changes = undo_client
-            .undo_latest(Request::new(undo::UndoLatestInput {
+        let req = TracedRequest::new(
+            undo::UndoLatestInput {
                 file: prefix.file.clone(),
                 user: prefix.user.clone(),
-            }))
-            .await?
-            .into_inner();
+            },
+            &span,
+        );
+        let changes = undo_client.undo_latest(req).await?.into_inner();
         let mut output = submit_client
             .submit_changes(Request::new(submit::SubmitChangesInput {
                 file: prefix.file,
@@ -129,6 +142,8 @@ impl api_server::Api for ApiService {
         request: Request<RedoLatestInput>,
     ) -> Result<Response<RedoLatestOutput>, Status> {
         let msg = request.into_inner();
+        let span = info_span!("undo_latest");
+        let _enter = span.enter();
         info!("Redo Latest: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
             .await
@@ -145,15 +160,16 @@ impl api_server::Api for ApiService {
             }))
             .await?
             .into_inner();
-        let mut output = submit_client
-            .submit_changes(Request::new(submit::SubmitChangesInput {
+        let req = TracedRequest::new(
+            submit::SubmitChangesInput {
                 file: prefix.file,
                 user: prefix.user,
                 offset: prefix.offset,
                 changes: changes.changes,
-            }))
-            .await?
-            .into_inner();
+            },
+            &span,
+        );
+        let mut output = submit_client.submit_changes(req).await?.into_inner();
         match output.offsets.pop() {
             Some(offset) => Ok(Response::new(RedoLatestOutput { offset })),
             None => Err(Status::out_of_range(
@@ -236,7 +252,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     info!("Running on {:?}", run_url);
     Server::builder()
-        .trace_fn(|_| tracing::info_span!("api"))
         .add_service(svc)
         .serve(run_url)
         .await

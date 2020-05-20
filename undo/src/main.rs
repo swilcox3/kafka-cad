@@ -78,7 +78,10 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
-        let _span = propagate_trace(&request, "undo", "begin_undo_event");
+        let span = info_span!("begin_undo_event");
+        propagate_trace(&span, request.metadata());
+        let _enter = span.enter();
+        info!("Request: {:?}", request);
         let msg = request.get_ref();
         let mut redis_conn = self.redis_conn.clone();
         cache::begin_undo_event(&mut redis_conn, &msg.file, &msg.user)
@@ -91,7 +94,10 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
-        let _span = propagate_trace(&request, "undo", "undo_latest");
+        let span = info_span!("undo_latest");
+        propagate_trace(&span, request.metadata());
+        let _enter = span.enter();
+        info!("Request: {:?}", request);
         let msg = request.get_ref();
         let mut redis_conn = self.redis_conn.clone();
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
@@ -115,7 +121,10 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<RedoLatestInput>,
     ) -> Result<Response<RedoLatestOutput>, Status> {
-        let _span = propagate_trace(&request, "undo", "redo_latest");
+        let span = info_span!("redo_latest");
+        propagate_trace(&span, request.metadata());
+        let _enter = span.enter();
+        info!("Request: {:?}", request);
         let msg = request.get_ref();
         let mut redis_conn = self.redis_conn.clone();
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
@@ -167,7 +176,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             info!("Running on {:?}", run_url);
             Server::builder()
-                .trace_fn(|_| tracing::info_span!("undo"))
                 .add_service(svc)
                 .serve(run_url)
                 .await
