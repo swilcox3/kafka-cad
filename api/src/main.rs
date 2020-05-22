@@ -1,6 +1,6 @@
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
-use trace_lib::TracedRequest;
+use trace_lib::{TracedRequest, trace_response};
 use tracing::*;
 
 mod api {
@@ -70,7 +70,7 @@ impl api_server::Api for ApiService {
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
         let msg = request.into_inner();
-        let span = info_span!("begin_undo_event");
+        let span = info_span!("api_begin_undo_event");
         let _enter = span.enter();
         info!("Begin Undo Event: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
@@ -84,16 +84,8 @@ impl api_server::Api for ApiService {
             &span,
         );
         let resp = undo_client.begin_undo_event(req).await;
-        match resp {
-            Ok(msg) => {
-                info!("Response: {:?}", msg);
-                Ok(Response::new(BeginUndoEventOutput {}))
-            }
-            Err(e) => {
-                error!("Error: {:?}", e);
-                Err(e)
-            }
-        }
+        trace_response(resp)?;
+        Ok(Response::new(BeginUndoEventOutput {}))
     }
 
     async fn undo_latest(
@@ -120,15 +112,15 @@ impl api_server::Api for ApiService {
             &span,
         );
         let changes = undo_client.undo_latest(req).await?.into_inner();
-        let mut output = submit_client
+        let resp = submit_client
             .submit_changes(Request::new(submit::SubmitChangesInput {
                 file: prefix.file,
                 user: prefix.user,
                 offset: prefix.offset,
                 changes: changes.changes,
             }))
-            .await?
-            .into_inner();
+            .await;
+        let mut output = trace_response(resp)?;
         match output.offsets.pop() {
             Some(offset) => Ok(Response::new(UndoLatestOutput { offset })),
             None => Err(Status::out_of_range(
@@ -142,7 +134,7 @@ impl api_server::Api for ApiService {
         request: Request<RedoLatestInput>,
     ) -> Result<Response<RedoLatestOutput>, Status> {
         let msg = request.into_inner();
-        let span = info_span!("undo_latest");
+        let span = info_span!("redo_latest");
         let _enter = span.enter();
         info!("Redo Latest: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
@@ -169,7 +161,8 @@ impl api_server::Api for ApiService {
             },
             &span,
         );
-        let mut output = submit_client.submit_changes(req).await?.into_inner();
+        let resp = submit_client.submit_changes(req).await;
+        let mut output = trace_response(resp)?;
         match output.offsets.pop() {
             Some(offset) => Ok(Response::new(RedoLatestOutput { offset })),
             None => Err(Status::out_of_range(
@@ -183,6 +176,8 @@ impl api_server::Api for ApiService {
         request: Request<CreateWallsInput>,
     ) -> Result<Response<CreateWallsOutput>, Status> {
         let msg = request.into_inner();
+        let span = info_span!("create_walls");
+        let _enter = span.enter();
         info!("Create Walls: {:?}", msg);
         let mut ops_client =
             operations::operations_client::OperationsClient::connect(self.ops_url.clone())
@@ -202,10 +197,10 @@ impl api_server::Api for ApiService {
                 height: wall.height,
             });
         }
-        let objects = ops_client
-            .create_walls(Request::new(operations::CreateWallsInput { walls }))
-            .await?
-            .into_inner();
+        let resp = ops_client
+            .create_walls(TracedRequest::new(operations::CreateWallsInput { walls }, &span))
+            .await;
+        let objects = trace_response(resp)?;
         let mut changes = Vec::new();
         let mut ids = Vec::new();
         for obj in objects.walls.into_iter() {
@@ -216,15 +211,15 @@ impl api_server::Api for ApiService {
             });
         }
 
-        let mut output = submit_client
-            .submit_changes(Request::new(submit::SubmitChangesInput {
+        let resp = submit_client
+            .submit_changes(TracedRequest::new(submit::SubmitChangesInput {
                 file: prefix.file,
                 user: prefix.user,
                 offset: prefix.offset,
                 changes,
-            }))
-            .await?
-            .into_inner();
+            }, &span))
+            .await;
+        let mut output = trace_response(resp)?;
         match output.offsets.pop() {
             Some(offset) => Ok(Response::new(CreateWallsOutput {
                 obj_ids: ids,
@@ -250,7 +245,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ops_url,
         submit_url,
     });
-    info!("Running on {:?}", run_url);
+    println!("Running on {:?}", run_url);
     Server::builder()
         .add_service(svc)
         .serve(run_url)

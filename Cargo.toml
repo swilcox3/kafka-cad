@@ -15,5 +15,5 @@ members = [
     "operations/operations-lib",
     "operations/operations-server",
     "ui-server",
-    "trace-lib"
+    "trace-lib",
 ]

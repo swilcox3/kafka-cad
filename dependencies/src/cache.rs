@@ -1,5 +1,5 @@
 use indexmap::IndexSet;
-use log::*;
+use tracing::*;
 use prost::Message;
 use redis::aio::MultiplexedConnection;
 use redis::AsyncCommands;

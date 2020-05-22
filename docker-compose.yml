@@ -55,8 +55,10 @@ services:
     depends_on: 
         - redis-objects
         - kafka1
+        - jaeger
     environment: 
         - RUN_URL=0.0.0.0:6000
+        - JAEGER_URL=jaeger:6831
         - REDIS_URL=redis://redis-objects:6379
         - BROKER=kafka1
         - GROUP=object-group
@@ -75,9 +77,11 @@ services:
     depends_on: 
         - redis-deps
         - kafka1
+        - jaeger
     environment: 
         - RUN_URL=0.0.0.0:6000
         - REDIS_URL=redis://redis-deps:6379
+        - JAEGER_URL=jaeger:6831
         - BROKER=kafka1
         - GROUP=dep-group
         - TOPIC=ObjectState
@@ -88,8 +92,10 @@ services:
         dockerfile: submit/Cargo.toml
     depends_on: 
         - kafka1
+        - jaeger
     environment: 
         - RUN_URL=0.0.0.0:6000
+        - JAEGER_URL=jaeger:6831
         - OBJECTS_URL=http://objects:6000
         - DEPENDENCIES_URL=http://dependencies:6000
         - OPERATIONS_URL=http://operations:6000
@@ -108,6 +114,7 @@ services:
         dockerfile: undo/Cargo.toml
     depends_on: 
         - kafka1
+        - jaeger
     environment: 
         - RUN_URL=0.0.0.0:6000
         - JAEGER_URL=jaeger:6831
@@ -127,6 +134,7 @@ services:
         dockerfile: operations/operations-server/Cargo.toml
     environment: 
         - RUN_URL=0.0.0.0:6000
+        - JAEGER_URL=jaeger:6831
         - GEOM_URL=http://geom-kernel:5000
         - RUST_LOG=operations_server,operations,obj_traits,obj_defs
   representations:
@@ -135,8 +143,10 @@ services:
         dockerfile: representations/Cargo.toml
     depends_on: 
         - kafka1
+        - jaeger
     environment: 
         - BROKER=kafka1
+        - JAEGER_URL=jaeger:6831
         - GROUP=reprGroup
         - OBJ_TOPIC=ObjectState
         - REPR_TOPIC=ClientRepresentation
@@ -160,6 +170,8 @@ services:
     build: 
         context: ./
         dockerfile: api/Cargo.toml
+    depends_on: 
+      - jaeger
     environment: 
         - RUN_URL=0.0.0.0:6000
         - JAEGER_URL=jaeger:6831

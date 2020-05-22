@@ -155,6 +155,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let group = std::env::var("GROUP").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
     trace_lib::init_tracer(&jaeger_url, "undo")?;
+    let span = info_span!("Service start");
+    let enter = span.enter();
     info!("redis_url: {:?}", redis_url);
     let client = redis::Client::open(redis_url).unwrap();
     let now = std::time::SystemTime::now();
@@ -175,6 +177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
 
             info!("Running on {:?}", run_url);
+            std::mem::drop(enter);
             Server::builder()
                 .add_service(svc)
                 .serve(run_url)

@@ -1,6 +1,7 @@
-use log::*;
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
+use tracing::*;
+use trace_lib::*;
 
 mod object_state {
     tonic::include_proto!("object_state");
@@ -61,6 +62,9 @@ impl submit_changes_server::SubmitChanges for SubmitService {
         &self,
         request: Request<SubmitChangesInput>,
     ) -> Result<Response<SubmitChangesOutput>, Status> {
+        let span = info_span!("submit_changes");
+        propagate_trace(&span, request.metadata());
+        let _enter = span.enter();
         let msg = request.into_inner();
         info!("Submitting changes: {:?}", msg);
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
@@ -78,6 +82,7 @@ impl submit_changes_server::SubmitChanges for SubmitService {
             &mut obj_client,
             &mut dep_client,
             &mut ops_client,
+            &span,
             msg.file,
             msg.user,
             msg.offset,
@@ -93,13 +98,14 @@ impl submit_changes_server::SubmitChanges for SubmitService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
+    let jaeger_url = std::env::var("JAEGER_URL").unwrap();
     let obj_url = std::env::var("OBJECTS_URL").unwrap();
     let dep_url = std::env::var("DEPENDENCIES_URL").unwrap();
     let ops_url = std::env::var("OPERATIONS_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
+    init_tracer(&jaeger_url, "submit")?;
     let svc = submit_changes_server::SubmitChangesServer::new(SubmitService {
         broker,
         topic,
@@ -108,7 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ops_url,
     });
 
-    info!("Running on {:?}", run_url);
+    println!("Running on {:?}", run_url);
     Server::builder()
         .add_service(svc)
         .serve(run_url)

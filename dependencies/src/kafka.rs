@@ -1,5 +1,5 @@
 use futures::StreamExt;
-use log::*;
+use tracing::*;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{CommitMode, Consumer};

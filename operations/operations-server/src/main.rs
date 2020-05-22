@@ -1,7 +1,8 @@
-use log::*;
+use tracing::*;
 use operations::*;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
+use trace_lib::*;
 
 mod representation {
     tonic::include_proto!("representation");
@@ -37,6 +38,9 @@ impl operations_server::Operations for OperationsService {
         request: Request<CreateWallsInput>,
     ) -> Result<Response<CreateWallsOutput>, Status> {
         let walls_msg = request.get_ref();
+        let span = info_span!("create_walls");
+        propagate_trace(&span, request.metadata());
+        let _enter = span.enter();
         info!("Create walls: {:?}", walls_msg);
         let mut results = Vec::new();
         for wall_msg in &walls_msg.walls {
@@ -55,6 +59,9 @@ impl operations_server::Operations for OperationsService {
         &self,
         request: Request<UpdateObjectsInput>,
     ) -> Result<Response<UpdateObjectsOutput>, Status> {
+        let span = info_span!("update_objects");
+        propagate_trace(&span, request.metadata());
+        let _enter = span.enter();
         let update_msg = request.get_ref();
         info!("Update objects: {:?}", update_msg);
         let refers = from_ref_msgs(&update_msg.obj_refs)?;
@@ -68,6 +75,9 @@ impl operations_server::Operations for OperationsService {
         &self,
         request: Request<ClientRepresentationInput>,
     ) -> Result<Response<ClientRepresentationOutput>, Status> {
+        let span = info_span!("client_representation");
+        propagate_trace(&span, request.metadata());
+        let _enter = span.enter();
         let repr_msg = request.get_ref();
         info!("Client representation: {:?}", repr_msg);
         debug!("Connecting on {:?}", self.geom_url);
@@ -94,12 +104,13 @@ impl operations_server::Operations for OperationsService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
+    let jaeger_url = std::env::var("JAEGER_URL").unwrap();
     let geom_url = std::env::var("GEOM_URL").unwrap();
+    trace_lib::init_tracer(&jaeger_url, "operations")?;
     let svc = operations_server::OperationsServer::new(OperationsService { geom_url });
 
-    info!("Running on {:?}", run_url);
+    println!("Running on {:?}", run_url);
     Server::builder().add_service(svc).serve(run_url).await?;
     Ok(())
 }

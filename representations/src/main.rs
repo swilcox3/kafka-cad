@@ -1,7 +1,7 @@
-use log::*;
+use tracing::*;
+use trace_lib::*;
 use prost::Message;
 use thiserror::Error;
-use tonic::Request;
 
 mod geom {
     tonic::include_proto!("geom");
@@ -50,15 +50,15 @@ pub enum RepresentationError {
 async fn call_service(
     ops_url: String,
     object: ChangeMsg,
+    span: &Span
 ) -> Result<Option<UpdateOutputMsg>, RepresentationError> {
-    debug!("Connecting to ops on {:?}", ops_url);
     let mut client = operations::operations_client::OperationsClient::connect(ops_url).await?;
-    let mut representation = client
-        .client_representation(Request::new(ClientRepresentationInput {
+    let resp = client
+        .client_representation(TracedRequest::new(ClientRepresentationInput {
             objects: vec![object],
-        }))
-        .await?
-        .into_inner();
+        }, span))
+        .await;
+    let mut representation = trace_response(resp)?;
     Ok(representation.outputs.pop())
 }
 
@@ -69,6 +69,8 @@ pub async fn calc_representation(
     ops_url: String,
     msg: &[u8],
 ) -> Result<(), RepresentationError> {
+    let span = info_span!("calc_representation");
+    let _enter = span.enter();
     let change = object_state::ChangeMsg::decode(msg)?;
     debug!("Got change: {:?}", change);
     let obj_id = match &change.change_type {
@@ -78,7 +80,7 @@ pub async fn calc_representation(
         None => return Err(RepresentationError::NoChangeType),
     };
     let user = change.user.clone();
-    let repr_opt = call_service(ops_url, change).await?;
+    let repr_opt = call_service(ops_url, change, &span).await?;
     info!("Got representation: {:?}", repr_opt);
     if let Some(repr) = repr_opt {
         let update_change = UpdateChangeMsg {
@@ -94,12 +96,13 @@ pub async fn calc_representation(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
     let broker = std::env::var("BROKER").unwrap();
+    let jaeger_url = std::env::var("JAEGER_URL").unwrap();
     let group = std::env::var("GROUP").unwrap();
     let obj_topic = std::env::var("OBJ_TOPIC").unwrap();
     let repr_topic = std::env::var("REPR_TOPIC").unwrap();
     let ops_url = std::env::var("OPS_URL").unwrap();
+    init_tracer(&jaeger_url, "representations")?;
     consume::start_consume_stream(broker, group, obj_topic, repr_topic, ops_url).await;
     return Ok(());
 }

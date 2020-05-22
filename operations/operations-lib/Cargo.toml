@@ -8,9 +8,9 @@ edition = "2018"
 
 [dependencies] 
 obj_defs = {path = "../obj-defs"}
-log = "0.4.8"
 serde = {version = "1.0.104", features = ["derive"]}
 indexmap = "1.2.0"
+tracing = "0.1.14"
 
 [dev-dependencies]
 tokio = {version = "0.2.11", features = ["rt-threaded", "test-util"]}

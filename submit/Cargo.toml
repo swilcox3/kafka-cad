@@ -11,19 +11,19 @@ edition = "2018"
 rdkafka = {version = "0.23.1", features = ["cmake-build"]}
 futures = "0.3.4"
 prost = "0.6"
-tonic = "0.1.1"
-log = "0.4.8"
-env_logger = "0.7.1"
+tonic = "0.2.1"
 tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
 thiserror = "1.0.9"
 indexmap = "1.2.0"
+trace_lib = {path = "../trace-lib"}
+tracing = "0.1.14"
 
 [dev-dependencies]
 tokio-macros = "0.2.4"
 uuid = {version = "0.8.1", features = ["v4"]}
 
 [build-dependencies]
-tonic-build = "0.1.1"
+tonic-build = "0.2"
 
 [package.metadata.wharf.builder]
 image = "rust:slim-buster"

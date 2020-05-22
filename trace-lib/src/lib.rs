@@ -1,5 +1,4 @@
-use opentelemetry::api::{self, Context, HttpTextFormat, Provider, TraceContextExt, Tracer};
-use opentelemetry::global;
+use opentelemetry::api::{self, HttpTextFormat, Provider};
 use opentelemetry::sdk;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::prelude::*;
@@ -43,6 +42,19 @@ impl TracedRequest {
     }
 }
 
+pub fn trace_response<T: std::fmt::Debug>(response: Result<tonic::Response<T>, tonic::Status>) -> Result<T, tonic::Status> {
+    match response {
+        Ok(msg) => {
+            tracing::info!("Response: {:?}", msg);
+            Ok(msg.into_inner())
+        }
+        Err(e) => {
+            tracing::error!("Error received: {:?}", e);
+            Err(e)
+        }
+    }
+}
+
 pub fn inject_trace(headers: &mut tonic::metadata::MetadataMap, span: &tracing::Span) {
     let propagator = api::TraceContextPropagator::new();
     propagator.inject_context(&span.context(), &mut TonicMetadataMapCarrierMut(headers));
@@ -73,7 +85,6 @@ pub fn init_tracer(
         })
         .build();
     let tracer = provider.get_tracer(service_name);
-    global::set_provider(provider);
 
     let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
     let filter = tracing_subscriber::EnvFilter::from_default_env();

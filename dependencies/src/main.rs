@@ -1,7 +1,8 @@
-use log::*;
+use tracing::*;
 use redis::aio::MultiplexedConnection;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
+use trace_lib::*;
 
 mod cache;
 mod kafka;
@@ -26,7 +27,10 @@ impl dependencies_server::Dependencies for DepsService {
         &self,
         request: Request<GetAllDependenciesInput>,
     ) -> Result<Response<GetAllDependenciesOutput>, Status> {
+        let span = info_span!("get_all_dependencies");
+        propagate_trace(&span, request.metadata());
         let msg = request.get_ref();
+        let _enter = span.enter();
         info!("Get all dependencies: {:?}", msg);
         let mut redis_conn = self.redis_conn.clone();
         let references = cache::get_all_deps(&mut redis_conn, &msg.file, msg.offset, &msg.ids)
@@ -38,17 +42,18 @@ impl dependencies_server::Dependencies for DepsService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
     let addr = std::env::var("RUN_URL").unwrap().parse().unwrap();
+    let jaeger_url = std::env::var("JAEGER_URL").unwrap();
     let redis_url = std::env::var("REDIS_URL").unwrap();
     let broker = std::env::var("BROKER").unwrap();
     let group = std::env::var("GROUP").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
-    info!("redis_url: {:?}", redis_url);
+    init_tracer(&jaeger_url, "dependencies")?;
+    println!("redis_url: {:?}", redis_url);
     let client = redis::Client::open(redis_url).unwrap();
     let now = std::time::SystemTime::now();
     while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
-        info!("Checking redis");
+        println!("Checking redis");
         if let Ok((redis_conn, fut)) = client.get_multiplexed_async_connection().await {
             tokio::spawn(fut);
             let redis_clone = redis_conn.clone();
@@ -56,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let svc = dependencies_server::DependenciesServer::new(DepsService { redis_conn });
 
-            info!("Running on {:?}", addr);
+            println!("Running on {:?}", addr);
             Server::builder()
                 .add_service(svc)
                 .serve(addr)
