@@ -17,10 +17,13 @@ tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test
 thiserror = "1.0.9"
 trace_lib = {path = "../trace-lib"}
 tracing = "0.1.14"
+tracing-futures = "0.2.4"
 
 [dev-dependencies]
 tokio-macros = "0.2.4"
 uuid = {version = "0.8.1", features = ["v4"]}
+env_logger = "0.7.1"
+log = "0.4.8"
 
 [build-dependencies]
 tonic-build = "0.2"

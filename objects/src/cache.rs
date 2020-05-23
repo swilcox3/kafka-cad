@@ -1,11 +1,11 @@
 //! The object cache for a file maps objIDs to a list of the last X number of changes to that object.
 //! X is configurable.  
 
-use tracing::*;
 use prost::Message;
 use redis::aio::MultiplexedConnection;
 use redis::AsyncCommands;
 use thiserror::Error;
+use tracing::*;
 
 mod geom {
     tonic::include_proto!("geom");
@@ -68,7 +68,7 @@ async fn store_object_change(
     obj: &[u8],
 ) -> Result<(), ObjError> {
     let obj_cache = obj_cache(file, key);
-    conn.rpush(&obj_cache, (offset, obj)).await?;
+    conn.lpush(&obj_cache, (offset, obj)).await?;
     Ok(())
 }
 
@@ -90,15 +90,12 @@ async fn get_object(
 ) -> Result<Vec<u8>, ObjError> {
     let obj_cache = obj_cache(file, key);
     let cache_length: u64 = conn.llen(&obj_cache).await?;
+    debug!("Cache length: {:?}", cache_length);
     if cache_length == 0 {
         return Err(ObjError::ObjNotFound(String::from(key)));
     }
-    //Iterate over cache backwards, so latest to newest.
     for i in 0isize..cache_length as isize {
-        let cur_index = -1 - i;
-        let next_to_cur = cur_index - 1;
-        let (cache_offset, obj): (i64, Vec<u8>) =
-            conn.lrange(&obj_cache, next_to_cur, cur_index).await?;
+        let (cache_offset, obj): (i64, Vec<u8>) = conn.lrange(&obj_cache, i, i + 1).await?;
         if cache_offset <= offset {
             return Ok(obj);
         }
@@ -133,6 +130,7 @@ pub async fn get_objects(
     conn: &mut MultiplexedConnection,
     input: &GetObjectsInput,
 ) -> Result<Vec<OptionChangeMsg>, ObjError> {
+    debug!("get_objects input: {:?}", input);
     let mut results = Vec::new();
     for entry in &input.obj_ids {
         let mut current = OptionChangeMsg { change: None };
@@ -140,16 +138,19 @@ pub async fn get_objects(
             Ok(bytes) => {
                 current.change = Some(ChangeMsg::decode(bytes.as_ref())?);
             }
-            Err(e) => {
-                error!("{}", e);
-                match e {
-                    ObjError::ObjNotFound(..) => (),
-                    _ => return Err(e),
+            Err(e) => match e {
+                ObjError::ObjNotFound(..) => {
+                    info!("Object {:?} not found", entry);
                 }
-            }
+                _ => {
+                    error!("{}", e);
+                    return Err(e);
+                }
+            },
         }
         results.push(current);
     }
+    info!("Found objects: {:?}", results);
     Ok(results)
 }
 

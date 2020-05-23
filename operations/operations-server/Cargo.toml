@@ -20,6 +20,7 @@ bincode = "1.2.1"
 structopt = "0.3.9"
 trace_lib = {path = "../../trace-lib"}
 tracing = "0.1.14"
+tracing-futures = "0.2.4"
 
 [build-dependencies]
 tonic-build = "0.2"

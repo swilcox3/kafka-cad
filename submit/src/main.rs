@@ -1,7 +1,8 @@
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
-use tracing::*;
 use trace_lib::*;
+use tracing::*;
+use tracing_futures::Instrument;
 
 mod object_state {
     tonic::include_proto!("object_state");
@@ -48,6 +49,7 @@ fn to_status<T: std::fmt::Debug>(err: T) -> Status {
     Status::unavailable(format!("Couldn't connect to service: {:?}", err))
 }
 
+#[derive(Debug)]
 struct SubmitService {
     broker: String,
     topic: String,
@@ -58,22 +60,24 @@ struct SubmitService {
 
 #[tonic::async_trait]
 impl submit_changes_server::SubmitChanges for SubmitService {
+    #[instrument]
     async fn submit_changes(
         &self,
         request: Request<SubmitChangesInput>,
     ) -> Result<Response<SubmitChangesOutput>, Status> {
-        let span = info_span!("submit_changes");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         let msg = request.into_inner();
         info!("Submitting changes: {:?}", msg);
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .instrument(info_span!("objects_client::connect"))
             .await
             .map_err(to_status)?;
         let mut dep_client = dependencies_client::DependenciesClient::connect(self.dep_url.clone())
+            .instrument(info_span!("dep_client::connect"))
             .await
             .map_err(to_status)?;
         let mut ops_client = operations_client::OperationsClient::connect(self.ops_url.clone())
+            .instrument(info_span!("ops_client::connect"))
             .await
             .map_err(to_status)?;
         trace!("Connected to services");
@@ -82,12 +86,12 @@ impl submit_changes_server::SubmitChanges for SubmitService {
             &mut obj_client,
             &mut dep_client,
             &mut ops_client,
-            &span,
             msg.file,
             msg.user,
             msg.offset,
             msg.changes,
         )
+        .instrument(info_span!("update_changes"))
         .await?;
         debug!("Updated: {:?}", updated);
         let offsets = produce::submit_changes(&self.broker, &self.topic, &file, updated).await;

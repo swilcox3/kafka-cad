@@ -5,7 +5,8 @@ use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{CommitMode, Consumer};
 use rdkafka::message::Message;
 
-async fn handle_message<M: Message>(
+#[instrument]
+async fn handle_message<M: Message + std::fmt::Debug>(
     broker: &str,
     repr_topic: &str,
     ops_url: String,
@@ -51,14 +52,14 @@ async fn handle_stream(
         match message {
             Ok(m) => {
                 if let Err(e) = handle_message(brokers, repr_topic, ops_url.clone(), &m).await {
-                    println!("{}", e);
+                    error!("{}", e);
                 }
                 if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
-                    println!("{}", e);
+                    error!("{}", e);
                 }
             }
             Err(e) => {
-                println!("{}", e);
+                error!("{}", e);
             }
         }
     }

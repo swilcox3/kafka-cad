@@ -1,46 +1,61 @@
-use tracing::*;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 use trace_lib::*;
+use tracing::*;
+use tracing_futures::Instrument;
 
 mod cache;
 mod kafka;
 use cache::*;
 use kafka::*;
 
+#[instrument]
+async fn get_redis_conn(url: &str) -> Result<redis::aio::MultiplexedConnection, tonic::Status> {
+    let client =
+        redis::Client::open(url).map_err(|e| tonic::Status::unavailable(format!("{:?}", e)))?;
+    match client.get_multiplexed_async_connection().await {
+        Ok((redis_conn, fut)) => {
+            tokio::spawn(fut);
+            Ok(redis_conn)
+        }
+        Err(e) => Err(tonic::Status::unavailable(format!("{:?}", e))),
+    }
+}
+
+#[derive(Debug)]
 struct ObjectService {
-    redis_conn: redis::aio::MultiplexedConnection,
+    redis_url: String,
 }
 
 #[tonic::async_trait]
 impl objects_server::Objects for ObjectService {
+    #[instrument]
     async fn get_objects(
         &self,
         request: Request<GetObjectsInput>,
     ) -> Result<Response<GetObjectsOutput>, Status> {
-        let span = info_span!("get_objects");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         let msg = request.get_ref();
         info!("Get objects: {:?}", msg);
-        let mut redis_conn = self.redis_conn.clone();
+        let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         let objects = cache::get_objects(&mut redis_conn, msg)
+            .instrument(info_span!("cache::get_objects"))
             .await
             .map_err(to_status)?;
         Ok(Response::new(GetObjectsOutput { objects }))
     }
 
+    #[instrument]
     async fn get_latest_offset(
         &self,
         request: Request<GetLatestOffsetInput>,
     ) -> Result<Response<GetLatestOffsetOutput>, Status> {
-        let span = info_span!("get_latest_offset");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         let msg = request.get_ref();
         info!("Get latest offset: {:?}", msg);
-        let mut redis_conn = self.redis_conn.clone();
+        let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         let offset = cache::get_latest_offset(&mut redis_conn, msg)
+            .instrument(info_span!("cache::get_latest_offset"))
             .await
             .map_err(to_status)?;
         Ok(Response::new(GetLatestOffsetOutput { offset }))
@@ -56,27 +71,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let group = std::env::var("GROUP").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
     trace_lib::init_tracer(&jaeger_url, "objects")?;
-    println!("redis_url: {:?}", redis_url);
-    let client = redis::Client::open(redis_url).unwrap();
-    let now = std::time::SystemTime::now();
-    while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
-        println!("Checking redis");
-        if let Ok((redis_conn, fut)) = client.get_multiplexed_async_connection().await {
-            tokio::spawn(fut);
-            let redis_clone = redis_conn.clone();
-            tokio::spawn(update_cache(redis_clone, broker, group, topic));
+    tokio::spawn(update_cache(redis_url.clone(), broker, group, topic));
 
-            let svc = objects_server::ObjectsServer::new(ObjectService { redis_conn });
+    let svc = objects_server::ObjectsServer::new(ObjectService { redis_url });
 
-            println!("Running on {:?}", run_url);
-            Server::builder()
-                .add_service(svc)
-                .serve(run_url)
-                .await
-                .unwrap();
-            return Ok(());
-        }
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    panic!("Couldn't connect to redis");
+    println!("Running on {:?}", run_url);
+    Server::builder()
+        .add_service(svc)
+        .serve(run_url)
+        .await
+        .unwrap();
+    Ok(())
 }

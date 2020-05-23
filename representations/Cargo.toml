@@ -16,6 +16,7 @@ tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test
 thiserror = "1.0.9"
 trace_lib = {path = "../trace-lib"}
 tracing = "0.1.14"
+tracing-futures = "0.2.4"
 
 [dev-dependencies]
 tokio-macros = "0.2.4"

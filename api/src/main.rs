@@ -1,7 +1,8 @@
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
-use trace_lib::{TracedRequest, trace_response};
+use trace_lib::{trace_response, TracedRequest};
 use tracing::*;
+use tracing_futures::Instrument;
 
 mod api {
     tonic::include_proto!("api");
@@ -57,6 +58,7 @@ impl Prefix {
     }
 }
 
+#[derive(Debug)]
 struct ApiService {
     undo_url: String,
     ops_url: String,
@@ -65,53 +67,53 @@ struct ApiService {
 
 #[tonic::async_trait]
 impl api_server::Api for ApiService {
+    #[instrument]
     async fn begin_undo_event(
         &self,
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
         let msg = request.into_inner();
-        let span = info_span!("api_begin_undo_event");
-        let _enter = span.enter();
-        info!("Begin Undo Event: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
+            .instrument(info_span!("undo_client::connect"))
             .await
             .map_err(unavailable)?;
-        let req = TracedRequest::new(
-            undo::BeginUndoEventInput {
-                file: msg.file,
-                user: msg.user,
-            },
-            &span,
-        );
-        let resp = undo_client.begin_undo_event(req).await;
+        let req = TracedRequest::new(undo::BeginUndoEventInput {
+            file: msg.file,
+            user: msg.user,
+        });
+        let resp = undo_client
+            .begin_undo_event(req)
+            .instrument(info_span!("undo_client::begin_undo_event"))
+            .await;
         trace_response(resp)?;
         Ok(Response::new(BeginUndoEventOutput {}))
     }
 
+    #[instrument]
     async fn undo_latest(
         &self,
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
         let msg = request.into_inner();
-        let span = info_span!("undo_latest");
-        let _enter = span.enter();
-        info!("Undo Latest: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
+            .instrument(info_span!("undo_client::connect"))
             .await
             .map_err(unavailable)?;
         let mut submit_client =
             submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
+                .instrument(info_span!("submit::connect"))
                 .await
                 .map_err(unavailable)?;
         let prefix = Prefix::new(msg.prefix)?;
-        let req = TracedRequest::new(
-            undo::UndoLatestInput {
-                file: prefix.file.clone(),
-                user: prefix.user.clone(),
-            },
-            &span,
-        );
-        let changes = undo_client.undo_latest(req).await?.into_inner();
+        let req = TracedRequest::new(undo::UndoLatestInput {
+            file: prefix.file.clone(),
+            user: prefix.user.clone(),
+        });
+        let resp = undo_client
+            .undo_latest(req)
+            .instrument(info_span!("undo_latest"))
+            .await;
+        let changes = trace_response(resp)?;
         let resp = submit_client
             .submit_changes(Request::new(submit::SubmitChangesInput {
                 file: prefix.file,
@@ -119,6 +121,7 @@ impl api_server::Api for ApiService {
                 offset: prefix.offset,
                 changes: changes.changes,
             }))
+            .instrument(info_span!("submit_changes"))
             .await;
         let mut output = trace_response(resp)?;
         match output.offsets.pop() {
@@ -129,39 +132,40 @@ impl api_server::Api for ApiService {
         }
     }
 
+    #[instrument]
     async fn redo_latest(
         &self,
         request: Request<RedoLatestInput>,
     ) -> Result<Response<RedoLatestOutput>, Status> {
         let msg = request.into_inner();
-        let span = info_span!("redo_latest");
-        let _enter = span.enter();
-        info!("Redo Latest: {:?}", msg);
         let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
+            .instrument(info_span!("undo_client::connect"))
             .await
             .map_err(unavailable)?;
         let mut submit_client =
             submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
+                .instrument(info_span!("submit_client::connect"))
                 .await
                 .map_err(unavailable)?;
         let prefix = Prefix::new(msg.prefix)?;
-        let changes = undo_client
+        let resp = undo_client
             .redo_latest(Request::new(undo::RedoLatestInput {
                 file: prefix.file.clone(),
                 user: prefix.user.clone(),
             }))
-            .await?
-            .into_inner();
-        let req = TracedRequest::new(
-            submit::SubmitChangesInput {
-                file: prefix.file,
-                user: prefix.user,
-                offset: prefix.offset,
-                changes: changes.changes,
-            },
-            &span,
-        );
-        let resp = submit_client.submit_changes(req).await;
+            .instrument(info_span!("redo_latest"))
+            .await;
+        let changes = trace_response(resp)?;
+        let req = TracedRequest::new(submit::SubmitChangesInput {
+            file: prefix.file,
+            user: prefix.user,
+            offset: prefix.offset,
+            changes: changes.changes,
+        });
+        let resp = submit_client
+            .submit_changes(req)
+            .instrument(info_span!("submit_changes"))
+            .await;
         let mut output = trace_response(resp)?;
         match output.offsets.pop() {
             Some(offset) => Ok(Response::new(RedoLatestOutput { offset })),
@@ -171,20 +175,20 @@ impl api_server::Api for ApiService {
         }
     }
 
+    #[instrument]
     async fn create_walls(
         &self,
         request: Request<CreateWallsInput>,
     ) -> Result<Response<CreateWallsOutput>, Status> {
         let msg = request.into_inner();
-        let span = info_span!("create_walls");
-        let _enter = span.enter();
-        info!("Create Walls: {:?}", msg);
         let mut ops_client =
             operations::operations_client::OperationsClient::connect(self.ops_url.clone())
+                .instrument(info_span!("ops_client::connect"))
                 .await
                 .map_err(unavailable)?;
         let mut submit_client =
             submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
+                .instrument(info_span!("submit_client::connect"))
                 .await
                 .map_err(unavailable)?;
         let prefix = Prefix::new(msg.prefix)?;
@@ -198,7 +202,8 @@ impl api_server::Api for ApiService {
             });
         }
         let resp = ops_client
-            .create_walls(TracedRequest::new(operations::CreateWallsInput { walls }, &span))
+            .create_walls(TracedRequest::new(operations::CreateWallsInput { walls }))
+            .instrument(info_span!("create_walls"))
             .await;
         let objects = trace_response(resp)?;
         let mut changes = Vec::new();
@@ -217,7 +222,8 @@ impl api_server::Api for ApiService {
                 user: prefix.user,
                 offset: prefix.offset,
                 changes,
-            }, &span))
+            }))
+            .instrument(info_span!("submit_changes"))
             .await;
         let mut output = trace_response(resp)?;
         match output.offsets.pop() {

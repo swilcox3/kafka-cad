@@ -31,6 +31,7 @@ pub async fn invert_changes(
     entries: Vec<UndoEntry>,
 ) -> Result<Vec<ChangeMsg>, Status> {
     let previous = get_all_previous_objects(obj_client, file, &entries).await?;
+    info!("Got previous: {:?}", previous);
     let mut inverted = Vec::new();
     for (current, prev) in entries.into_iter().zip(previous.into_iter()) {
         match prev.change {

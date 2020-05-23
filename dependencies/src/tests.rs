@@ -142,8 +142,8 @@ async fn test_deps_simple() {
     let obj_0_pt_0 = ref_id_msg(obj_0_id.clone(), RefType::ProfilePoint, 0);
     let obj_0_pt_1 = ref_id_msg(obj_0_id.clone(), RefType::ProfilePoint, 1);
     let obj_1_id = Uuid::new_v4().to_string();
-    trace!("obj_0: {:?}", obj_0_id);
-    trace!("obj_1: {:?}", obj_1_id);
+    log::trace!("obj_0: {:?}", obj_0_id);
+    log::trace!("obj_1: {:?}", obj_1_id);
     let obj_1_pt_0 = ref_id_msg(obj_1_id.clone(), RefType::ProfilePoint, 0);
     let obj_1_pt_1 = ref_id_msg(obj_1_id.clone(), RefType::ProfilePoint, 1);
     let obj_0 = add_change_msg(
@@ -197,8 +197,8 @@ async fn test_deps_versioned() {
     let obj_1_pt_0 = ref_id_msg(obj_1_id.clone(), RefType::ProfilePoint, 0);
     let obj_1_pt_1 = ref_id_msg(obj_1_id.clone(), RefType::ProfilePoint, 1);
 
-    trace!("obj_0: {:?}", obj_0_id);
-    trace!("obj_1: {:?}", obj_1_id);
+    log::trace!("obj_0: {:?}", obj_0_id);
+    log::trace!("obj_1: {:?}", obj_1_id);
 
     let obj_0 = add_change_msg(
         obj_0_id.clone(),
@@ -272,11 +272,11 @@ async fn test_get_all_deps() {
     let dim_1_pt_0 = ref_id_msg(dim_1_id.clone(), RefType::ProfilePoint, 0);
     let dim_1_pt_1 = ref_id_msg(dim_1_id.clone(), RefType::ProfilePoint, 1);
 
-    trace!("wall 0: {:?}", wall_0_id);
-    trace!("wall 1: {:?}", wall_1_id);
-    trace!("window: {:?}", window_id);
-    trace!("dim 0: {:?}", dim_0_id);
-    trace!("dim 1: {:?}", dim_1_id);
+    log::trace!("wall 0: {:?}", wall_0_id);
+    log::trace!("wall 1: {:?}", wall_1_id);
+    log::trace!("window: {:?}", window_id);
+    log::trace!("dim 0: {:?}", dim_0_id);
+    log::trace!("dim 1: {:?}", dim_1_id);
 
     let wall_0 = add_change_msg(
         wall_0_id.clone(),
@@ -325,7 +325,7 @@ async fn test_get_all_deps() {
     let results = get_all_deps(&mut conn, &file, 4, &vec![wall_0_pt_1.clone()])
         .await
         .unwrap();
-    info!("Got results: {:#?}", results);
+    log::info!("Got results: {:#?}", results);
     assert!(equals(
         results,
         vec![
@@ -347,7 +347,7 @@ async fn test_get_all_deps() {
     let results = get_all_deps(&mut conn, &file, 4, &vec![window_pt_0.clone()])
         .await
         .unwrap();
-    info!("Got results: {:#?}", results);
+    log::info!("Got results: {:#?}", results);
     assert!(equals(
         results,
         vec![
@@ -359,6 +359,6 @@ async fn test_get_all_deps() {
     let results = get_all_deps(&mut conn, &file, 0, &vec![window_pt_0.clone()])
         .await
         .unwrap();
-    info!("Got results: {:#?}", results);
+    log::info!("Got results: {:#?}", results);
     assert!(equals(results, vec![]));
 }

@@ -1,8 +1,9 @@
-use tracing::*;
 use operations::*;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 use trace_lib::*;
+use tracing::*;
+use tracing_futures::Instrument;
 
 mod representation {
     tonic::include_proto!("representation");
@@ -27,20 +28,20 @@ mod obj_convert;
 use obj_convert::*;
 use ops_proto::*;
 
+#[derive(Debug)]
 struct OperationsService {
     geom_url: String,
 }
 
 #[tonic::async_trait]
 impl operations_server::Operations for OperationsService {
+    #[instrument]
     async fn create_walls(
         &self,
         request: Request<CreateWallsInput>,
     ) -> Result<Response<CreateWallsOutput>, Status> {
         let walls_msg = request.get_ref();
-        let span = info_span!("create_walls");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         info!("Create walls: {:?}", walls_msg);
         let mut results = Vec::new();
         for wall_msg in &walls_msg.walls {
@@ -55,13 +56,12 @@ impl operations_server::Operations for OperationsService {
         Ok(Response::new(CreateWallsOutput { walls: results }))
     }
 
+    #[instrument]
     async fn update_objects(
         &self,
         request: Request<UpdateObjectsInput>,
     ) -> Result<Response<UpdateObjectsOutput>, Status> {
-        let span = info_span!("update_objects");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         let update_msg = request.get_ref();
         info!("Update objects: {:?}", update_msg);
         let refers = from_ref_msgs(&update_msg.obj_refs)?;
@@ -71,17 +71,17 @@ impl operations_server::Operations for OperationsService {
         Ok(Response::new(UpdateObjectsOutput { objects: changes }))
     }
 
+    #[instrument]
     async fn client_representation(
         &self,
         request: Request<ClientRepresentationInput>,
     ) -> Result<Response<ClientRepresentationOutput>, Status> {
-        let span = info_span!("client_representation");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         let repr_msg = request.get_ref();
         info!("Client representation: {:?}", repr_msg);
         debug!("Connecting on {:?}", self.geom_url);
         let mut geom_conn = new_geom_conn(self.geom_url.clone())
+            .instrument(info_span!("new_geom_conn"))
             .await
             .map_err(to_status)?;
         trace!("Connected to geom kernel");
@@ -91,6 +91,7 @@ impl operations_server::Operations for OperationsService {
             let (output, views_opt) = match change {
                 Change::Add { obj } | Change::Modify { obj } => {
                     get_obj_update_info(&mut geom_conn, &obj)
+                        .instrument(info_span!("get_obj_update_info"))
                         .await
                         .map_err(to_status)?
                 }

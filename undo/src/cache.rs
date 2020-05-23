@@ -44,6 +44,7 @@ async fn add_undo_entry(
         obj_id,
         change_type,
     };
+    debug!("adding undo entry {:?}", entry);
     let serialized = bincode::serialize(&entry)?;
     redis_conn.rpush(event, serialized).await?;
     Ok(())
@@ -79,7 +80,9 @@ async fn pop_undo_event(
     user: &str,
 ) -> Result<String, UndoError> {
     let undo_stack = undo_stack(file, user);
+    trace!("Undo stack: {:?}", undo_stack);
     let event: Option<String> = redis_conn.rpop(undo_stack).await?;
+    trace!("popped event: {:?}", event);
     match event {
         Some(event) => Ok(event),
         None => Err(UndoError::NoUndoEvent(
@@ -171,8 +174,11 @@ pub async fn undo(
     user: &str,
 ) -> Result<Vec<UndoEntry>, UndoError> {
     let event = pop_undo_event(redis_conn, file, user).await?;
+    trace!("made it event {:?}", event);
     push_redo_event(redis_conn, file, user, &event).await?;
+    trace!("Pushed redo event");
     let list = get_undo_event_list(redis_conn, &event).await?;
+    debug!("got list: {:?}", list);
     Ok(list)
 }
 

@@ -4,6 +4,7 @@ use rdkafka::config::ClientConfig;
 //use rdkafka::message::Message;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
+#[instrument]
 pub async fn submit_representations(
     brokers: &str,
     topic_name: &str,

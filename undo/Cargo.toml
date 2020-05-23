@@ -20,6 +20,7 @@ thiserror = "1.0.9"
 uuid = {version = "0.8.1", features = ["v4"]}
 trace_lib = {path = "../trace-lib"}
 tracing = "0.1.14"
+tracing-futures = "0.2.4"
 
 [dev-dependencies]
 tokio-macros = "0.2.4"

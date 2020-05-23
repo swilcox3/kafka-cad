@@ -5,6 +5,7 @@ use rdkafka::consumer::{CommitMode, Consumer};
 use rdkafka::message::Message;
 use thiserror::Error;
 use tracing::*;
+use tracing_futures::Instrument;
 
 #[derive(Debug, Error)]
 pub enum UpdateError {
@@ -33,12 +34,17 @@ async fn handle_message<M: Message>(
         .key()
         .ok_or(UpdateError::FileError { partition, offset })?;
     let file = std::str::from_utf8(file_bytes)?;
-    crate::cache::update_undo_cache(redis_conn, &file, offset, bytes).await?;
-    Ok(())
+    let resp = crate::cache::update_undo_cache(redis_conn, &file, offset, bytes)
+        .instrument(info_span!("update_undo_cache"))
+        .await;
+    match resp {
+        Ok(()) => Ok(()),
+        Err(e) => Err(UpdateError::from(e)),
+    }
 }
 
 async fn handle_stream(
-    redis_conn: &mut redis::aio::MultiplexedConnection,
+    redis_url: &str,
     brokers: &str,
     group_id: &str,
     topic: &str,
@@ -59,17 +65,32 @@ async fn handle_stream(
     let mut message_stream = consumer.start();
 
     while let Some(message) = message_stream.next().await {
-        match message {
-            Ok(m) => {
-                info!("Got message");
-                if let Err(e) = handle_message(redis_conn, &m).await {
+        match crate::get_redis_conn(redis_url).await {
+            Ok(mut redis_conn) => match message {
+                Ok(m) => {
+                    if let Err(e) = handle_message(&mut redis_conn, &m)
+                        .instrument(info_span!("handle_message"))
+                        .await
+                    {
+                        let span = info_span!("handle_message error");
+                        let _enter = span.enter();
+                        error!("{}", e);
+                    }
+                    let span = info_span!("commit_message");
+                    let _enter = span.enter();
+                    if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
+                        error!("{}", e);
+                    }
+                }
+                Err(e) => {
+                    let span = info_span!("kafka message error");
+                    let _enter = span.enter();
                     error!("{}", e);
                 }
-                if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
-                    error!("{}", e);
-                }
-            }
+            },
             Err(e) => {
+                let span = info_span!("redis connect error");
+                let _enter = span.enter();
                 error!("{}", e);
             }
         }
@@ -77,14 +98,9 @@ async fn handle_stream(
     Ok(())
 }
 
-pub async fn update_cache(
-    mut redis_conn: redis::aio::MultiplexedConnection,
-    brokers: String,
-    group_id: String,
-    topic: String,
-) {
+pub async fn update_cache(redis_url: String, brokers: String, group_id: String, topic: String) {
     std::thread::sleep(std::time::Duration::from_secs(30));
-    if let Err(e) = handle_stream(&mut redis_conn, &brokers, &group_id, &topic).await {
+    if let Err(e) = handle_stream(&redis_url, &brokers, &group_id, &topic).await {
         error!("{}", e);
     }
 }

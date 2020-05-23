@@ -31,7 +31,6 @@ fn extract_info(changes: Vec<ChangeMsg>) -> (Vec<RefIdMsg>, IndexMap<String, Cha
 
 async fn get_all_dependencies(
     dep_client: &mut DepClient,
-    span: &Span,
     file: &String,
     offset: i64,
     ids: Vec<RefIdMsg>,
@@ -42,7 +41,8 @@ async fn get_all_dependencies(
         ids,
     };
     let resp = dep_client
-        .get_all_dependencies(TracedRequest::new(input, span))
+        .get_all_dependencies(TracedRequest::new(input))
+        .instrument(info_span!("get_all_dependencies"))
         .await;
     let refers = trace_response(resp)?.references;
     Ok(refers)
@@ -70,7 +70,6 @@ fn get_obj_ids_to_fetch(
 
 async fn get_objects_to_update(
     obj_client: &mut ObjClient,
-    span: &Span,
     file: &String,
     offset: i64,
     user: String,
@@ -85,7 +84,8 @@ async fn get_objects_to_update(
         obj_ids: entries,
     };
     let resp = obj_client
-        .get_objects(TracedRequest::new(input, span))
+        .get_objects(TracedRequest::new(input))
+        .instrument(info_span!("get_objects"))
         .await;
     let objs_msg = trace_response(resp)?;
     let mut results = Vec::new();
@@ -100,13 +100,13 @@ async fn get_objects_to_update(
 
 async fn update(
     ops_client: &mut OpsClient,
-    span: &Span,
     obj_refs: Vec<ReferenceMsg>,
     objects: Vec<ChangeMsg>,
 ) -> Result<Vec<ChangeMsg>, tonic::Status> {
     let input = UpdateObjectsInput { obj_refs, objects };
     let resp = ops_client
-        .update_objects(TracedRequest::new(input, span))
+        .update_objects(TracedRequest::new(input))
+        .instrument(info_span!("update_objects"))
         .await;
     let output = trace_response(resp)?;
     Ok(output.objects)
@@ -116,7 +116,6 @@ pub async fn update_changes(
     obj_client: &mut ObjClient,
     dep_client: &mut DepClient,
     ops_client: &mut OpsClient,
-    span: &Span,
     file: String,
     user: String,
     offset: i64,
@@ -124,14 +123,14 @@ pub async fn update_changes(
 ) -> Result<Vec<ChangeMsg>, tonic::Status> {
     let (ref_ids, mut objects) = extract_info(changes);
     trace!("Got ref ids: {:?}", ref_ids);
-    let refers = get_all_dependencies(dep_client, span, &file, offset, ref_ids).await?;
+    let refers = get_all_dependencies(dep_client, &file, offset, ref_ids).await?;
     trace!("Got references: {:?}", refers);
     let obj_ids = get_obj_ids_to_fetch(&refers, &objects);
     trace!("Fetching objects: {:?}", obj_ids);
-    let mut fetched_objs = get_objects_to_update(obj_client, span, &file, offset, user, obj_ids).await?;
+    let mut fetched_objs = get_objects_to_update(obj_client, &file, offset, user, obj_ids).await?;
     let mut obj_vec: Vec<ChangeMsg> = objects.drain(..).map(|(_, val)| val).collect();
     obj_vec.append(&mut fetched_objs);
     debug!("Updating objects: {:?}", obj_vec);
-    let results = update(ops_client, span, refers, obj_vec).await?;
+    let results = update(ops_client, refers, obj_vec).await?;
     Ok(results)
 }

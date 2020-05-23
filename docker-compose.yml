@@ -63,7 +63,7 @@ services:
         - BROKER=kafka1
         - GROUP=object-group
         - TOPIC=ObjectState
-        - RUST_LOG=objects
+        - RUST_LOG=objects,trace_lib
   redis-deps:
     image: "redis:alpine"
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
@@ -85,7 +85,7 @@ services:
         - BROKER=kafka1
         - GROUP=dep-group
         - TOPIC=ObjectState
-        - RUST_LOG=dependencies
+        - RUST_LOG=dependencies,trace_lib
   submit:
     build: 
         context: ./
@@ -101,7 +101,7 @@ services:
         - OPERATIONS_URL=http://operations:6000
         - BROKER=kafka1
         - TOPIC=ObjectState
-        - RUST_LOG=submit
+        - RUST_LOG=submit,trace_lib
   redis-undo:
     image: "redis:alpine"
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
@@ -123,7 +123,7 @@ services:
         - BROKER=kafka1
         - GROUP=undoGroup
         - TOPIC=ObjectState
-        - RUST_LOG=undo
+        - RUST_LOG=undo,trace_lib
   geom-kernel:
     build:
         context: ./
@@ -136,7 +136,7 @@ services:
         - RUN_URL=0.0.0.0:6000
         - JAEGER_URL=jaeger:6831
         - GEOM_URL=http://geom-kernel:5000
-        - RUST_LOG=operations_server,operations,obj_traits,obj_defs
+        - RUST_LOG=operations_server,operations,obj_traits,obj_defs,trace_lib
   representations:
     build: 
         context: ./
@@ -151,7 +151,7 @@ services:
         - OBJ_TOPIC=ObjectState
         - REPR_TOPIC=ClientRepresentation
         - OPS_URL=http://operations:6000
-        - RUST_LOG=representations
+        - RUST_LOG=representations,trace_lib
   updates:
     build: 
         context: ./
@@ -178,7 +178,7 @@ services:
         - UNDO_URL=http://undo:6000
         - OPS_URL=http://operations:6000
         - SUBMIT_URL=http://submit:6000
-        - RUST_LOG=api
+        - RUST_LOG=api,trace_lib
     ports:
       - "8080:6000"
   ui-server:

@@ -1,7 +1,7 @@
-use tracing::*;
-use trace_lib::*;
 use prost::Message;
 use thiserror::Error;
+use trace_lib::*;
+use tracing::*;
 
 mod geom {
     tonic::include_proto!("geom");
@@ -47,21 +47,22 @@ pub enum RepresentationError {
     NoChangeType,
 }
 
+#[instrument]
 async fn call_service(
     ops_url: String,
     object: ChangeMsg,
-    span: &Span
 ) -> Result<Option<UpdateOutputMsg>, RepresentationError> {
     let mut client = operations::operations_client::OperationsClient::connect(ops_url).await?;
     let resp = client
         .client_representation(TracedRequest::new(ClientRepresentationInput {
             objects: vec![object],
-        }, span))
+        }))
         .await;
     let mut representation = trace_response(resp)?;
     Ok(representation.outputs.pop())
 }
 
+#[instrument]
 pub async fn calc_representation(
     broker: &str,
     topic: &str,
@@ -69,8 +70,6 @@ pub async fn calc_representation(
     ops_url: String,
     msg: &[u8],
 ) -> Result<(), RepresentationError> {
-    let span = info_span!("calc_representation");
-    let _enter = span.enter();
     let change = object_state::ChangeMsg::decode(msg)?;
     debug!("Got change: {:?}", change);
     let obj_id = match &change.change_type {
@@ -80,7 +79,7 @@ pub async fn calc_representation(
         None => return Err(RepresentationError::NoChangeType),
     };
     let user = change.user.clone();
-    let repr_opt = call_service(ops_url, change, &span).await?;
+    let repr_opt = call_service(ops_url, change).await?;
     info!("Got representation: {:?}", repr_opt);
     if let Some(repr) = repr_opt {
         let update_change = UpdateChangeMsg {

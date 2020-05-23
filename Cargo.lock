@@ -339,6 +339,7 @@ dependencies = [
  "tonic-build",
  "trace_lib",
  "tracing",
+ "tracing-futures",
 ]
 
 [[package]]
@@ -715,8 +716,10 @@ name = "dependencies"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "env_logger",
  "futures",
  "indexmap",
+ "log",
  "prost",
  "rdkafka",
  "redis",
@@ -728,6 +731,7 @@ dependencies = [
  "tonic-build",
  "trace_lib",
  "tracing",
+ "tracing-futures",
  "uuid",
 ]
 
@@ -1545,6 +1549,7 @@ dependencies = [
  "tonic-build",
  "trace_lib",
  "tracing",
+ "tracing-futures",
 ]
 
 [[package]]
@@ -1576,7 +1581,9 @@ checksum = "9cbca9424c482ee628fa549d9c812e2cd22f1180b9222c9200fdfa6eb31aecb2"
 name = "objects"
 version = "0.1.0"
 dependencies = [
+ "env_logger",
  "futures",
+ "log",
  "prost",
  "rdkafka",
  "redis",
@@ -1587,6 +1594,7 @@ dependencies = [
  "tonic-build",
  "trace_lib",
  "tracing",
+ "tracing-futures",
  "uuid",
 ]
 
@@ -1683,6 +1691,7 @@ dependencies = [
  "tonic-build",
  "trace_lib",
  "tracing",
+ "tracing-futures",
 ]
 
 [[package]]
@@ -2191,6 +2200,7 @@ dependencies = [
  "tonic-build",
  "trace_lib",
  "tracing",
+ "tracing-futures",
  "uuid",
 ]
 
@@ -2410,6 +2420,7 @@ dependencies = [
  "tonic-build",
  "trace_lib",
  "tracing",
+ "tracing-futures",
  "uuid",
 ]
 
@@ -2903,9 +2914,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-futures"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58b0b7fd92dc7b71f29623cc6836dd7200f32161a2313dd78be233a8405694f6"
+checksum = "ab7bb6f14721aa00656086e9335d363c5c8747bae02ebe32ea2c7dece5689b4c"
 dependencies = [
  "pin-project",
  "tracing",
@@ -3088,6 +3099,7 @@ dependencies = [
  "tonic-build",
  "trace_lib",
  "tracing",
+ "tracing-futures",
  "uuid",
 ]
 

@@ -17,12 +17,10 @@ impl<'a> api::Carrier for TonicMetadataMapCarrier<'a> {
 struct TonicMetadataMapCarrierMut<'a>(&'a mut tonic::metadata::MetadataMap);
 impl<'a> api::Carrier for TonicMetadataMapCarrierMut<'a> {
     fn get(&self, key: &'static str) -> Option<&str> {
-        println!("Extracting key {:?}", key);
         self.0.get(key).and_then(|metadata| metadata.to_str().ok())
     }
 
     fn set(&mut self, key: &'static str, value: String) {
-        println!("Inserting key {:?} with value {:?}", key, value);
         if let Ok(key) = tonic::metadata::MetadataKey::from_bytes(key.to_lowercase().as_bytes()) {
             self.0.insert(
                 key,
@@ -35,17 +33,19 @@ impl<'a> api::Carrier for TonicMetadataMapCarrierMut<'a> {
 pub struct TracedRequest {}
 
 impl TracedRequest {
-    pub fn new<T>(msg: T, span: &tracing::Span) -> tonic::Request<T> {
+    pub fn new<T>(msg: T) -> tonic::Request<T> {
         let mut req = tonic::Request::new(msg);
-        inject_trace(req.metadata_mut(), span);
+        inject_trace(req.metadata_mut(), &tracing::Span::current());
         req
     }
 }
 
-pub fn trace_response<T: std::fmt::Debug>(response: Result<tonic::Response<T>, tonic::Status>) -> Result<T, tonic::Status> {
+pub fn trace_response<T: std::fmt::Debug>(
+    response: Result<tonic::Response<T>, tonic::Status>,
+) -> Result<T, tonic::Status> {
     match response {
         Ok(msg) => {
-            tracing::info!("Response: {:?}", msg);
+            tracing::info!("{:?}", msg);
             Ok(msg.into_inner())
         }
         Err(e) => {
@@ -60,8 +60,9 @@ pub fn inject_trace(headers: &mut tonic::metadata::MetadataMap, span: &tracing::
     propagator.inject_context(&span.context(), &mut TonicMetadataMapCarrierMut(headers));
 }
 
-pub fn propagate_trace(span: &tracing::Span, metadata: &tonic::metadata::MetadataMap) {
+pub fn propagate_trace(metadata: &tonic::metadata::MetadataMap) {
     let propagator = api::TraceContextPropagator::new();
+    let span = tracing::Span::current();
     let parent_cx = propagator.extract(&TonicMetadataMapCarrier(metadata));
     span.set_parent(&parent_cx);
 }

@@ -3,6 +3,7 @@ use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
 use trace_lib::propagate_trace;
 use tracing::*;
+use tracing_futures::Instrument;
 
 mod cache;
 mod invert;
@@ -67,49 +68,73 @@ pub fn unavailable<T: std::fmt::Debug>(err: T) -> Status {
     Status::unavailable(format!("Unable to connect to service: {:?}", err))
 }
 
+#[instrument]
+async fn get_redis_conn(url: &str) -> Result<redis::aio::MultiplexedConnection, tonic::Status> {
+    let client =
+        redis::Client::open(url).map_err(|e| tonic::Status::unavailable(format!("{:?}", e)))?;
+    match client.get_multiplexed_async_connection().await {
+        Ok((redis_conn, fut)) => {
+            tokio::spawn(fut);
+            Ok(redis_conn)
+        }
+        Err(e) => Err(tonic::Status::unavailable(format!("{:?}", e))),
+    }
+}
+
+#[derive(Debug)]
 struct UndoService {
-    redis_conn: redis::aio::MultiplexedConnection,
+    redis_url: String,
     obj_url: String,
 }
 
 #[tonic::async_trait]
 impl undo_server::Undo for UndoService {
+    #[instrument]
     async fn begin_undo_event(
         &self,
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
-        let span = info_span!("begin_undo_event");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         info!("Request: {:?}", request);
         let msg = request.get_ref();
-        let mut redis_conn = self.redis_conn.clone();
+        let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         cache::begin_undo_event(&mut redis_conn, &msg.file, &msg.user)
+            .instrument(info_span!("cache::begin_undo_event"))
             .await
             .map_err(to_status)?;
+        info!("This doesn't get logged");
         Ok(Response::new(BeginUndoEventOutput {}))
     }
 
+    #[instrument]
     async fn undo_latest(
         &self,
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
-        let span = info_span!("undo_latest");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         info!("Request: {:?}", request);
         let msg = request.get_ref();
-        let mut redis_conn = self.redis_conn.clone();
+        let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .instrument(info_span!("objects_client::connect"))
             .await
             .map_err(unavailable)?;
         let latest = cache::undo(&mut redis_conn, &msg.file, &msg.user)
+            .instrument(info_span!("cache::undo"))
             .await
             .map_err(to_status)?;
-        match invert::invert_changes(&mut obj_client, &msg.file, &msg.user, latest).await {
-            Ok(changes) => Ok(Response::new(UndoLatestOutput { changes })),
+        match invert::invert_changes(&mut obj_client, &msg.file, &msg.user, latest)
+            .instrument(info_span!("invert_changes"))
+            .await
+        {
+            Ok(changes) => {
+                info!("Got changes {:?}", changes);
+                Ok(Response::new(UndoLatestOutput { changes }))
+            }
             Err(e) => {
+                error!("Got error {:?}, redoing", e);
                 cache::redo(&mut redis_conn, &msg.file, &msg.user)
+                    .instrument(info_span!("redo"))
                     .await
                     .map_err(to_status)?;
                 Err(e)
@@ -121,22 +146,27 @@ impl undo_server::Undo for UndoService {
         &self,
         request: Request<RedoLatestInput>,
     ) -> Result<Response<RedoLatestOutput>, Status> {
-        let span = info_span!("redo_latest");
-        propagate_trace(&span, request.metadata());
-        let _enter = span.enter();
+        propagate_trace(request.metadata());
         info!("Request: {:?}", request);
         let msg = request.get_ref();
-        let mut redis_conn = self.redis_conn.clone();
+        let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .in_current_span()
             .await
             .map_err(unavailable)?;
         let latest = cache::redo(&mut redis_conn, &msg.file, &msg.user)
+            .in_current_span()
             .await
             .map_err(to_status)?;
         match invert::invert_changes(&mut obj_client, &msg.file, &msg.user, latest).await {
-            Ok(changes) => Ok(Response::new(RedoLatestOutput { changes })),
+            Ok(changes) => {
+                info!("Got changes {:?}", changes);
+                Ok(Response::new(RedoLatestOutput { changes }))
+            }
             Err(e) => {
+                error!("Got error {:?}, undoing", e);
                 cache::undo(&mut redis_conn, &msg.file, &msg.user)
+                    .in_current_span()
                     .await
                     .map_err(to_status)?;
                 Err(e)
@@ -155,37 +185,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let group = std::env::var("GROUP").unwrap();
     let topic = std::env::var("TOPIC").unwrap();
     trace_lib::init_tracer(&jaeger_url, "undo")?;
-    let span = info_span!("Service start");
-    let enter = span.enter();
-    info!("redis_url: {:?}", redis_url);
-    let client = redis::Client::open(redis_url).unwrap();
-    let now = std::time::SystemTime::now();
-    while now.elapsed().unwrap() < std::time::Duration::from_secs(30) {
-        info!("Checking redis");
-        if let Ok((redis_conn, fut)) = client.get_multiplexed_async_connection().await {
-            tokio::spawn(fut);
-            let redis_clone = redis_conn.clone();
-            tokio::spawn(update_cache(
-                redis_clone,
-                broker.clone(),
-                group.clone(),
-                topic.clone(),
-            ));
-            let svc = undo_server::UndoServer::new(UndoService {
-                redis_conn,
-                obj_url,
-            });
+    tokio::spawn(update_cache(
+        redis_url.clone(),
+        broker.clone(),
+        group.clone(),
+        topic.clone(),
+    ));
+    let svc = undo_server::UndoServer::new(UndoService { redis_url, obj_url });
 
-            info!("Running on {:?}", run_url);
-            std::mem::drop(enter);
-            Server::builder()
-                .add_service(svc)
-                .serve(run_url)
-                .await
-                .unwrap();
-            return Ok(());
-        }
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    panic!("Couldn't connect to redis");
+    info!("Running on {:?}", run_url);
+    Server::builder()
+        .add_service(svc)
+        .serve(run_url)
+        .await
+        .unwrap();
+    Ok(())
 }
