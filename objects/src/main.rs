@@ -36,7 +36,6 @@ impl objects_server::Objects for ObjectService {
     ) -> Result<Response<GetObjectsOutput>, Status> {
         propagate_trace(request.metadata());
         let msg = request.get_ref();
-        info!("Get objects: {:?}", msg);
         let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         let objects = cache::get_objects(&mut redis_conn, msg)
             .instrument(info_span!("cache::get_objects"))
@@ -52,7 +51,6 @@ impl objects_server::Objects for ObjectService {
     ) -> Result<Response<GetLatestOffsetOutput>, Status> {
         propagate_trace(request.metadata());
         let msg = request.get_ref();
-        info!("Get latest offset: {:?}", msg);
         let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         let offset = cache::get_latest_offset(&mut redis_conn, msg)
             .instrument(info_span!("cache::get_latest_offset"))

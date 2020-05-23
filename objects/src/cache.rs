@@ -96,6 +96,11 @@ async fn get_object(
     }
     for i in 0isize..cache_length as isize {
         let (cache_offset, obj): (i64, Vec<u8>) = conn.lrange(&obj_cache, i, i + 1).await?;
+        trace!(
+            "Comparing cache_offset {:?} to offset {:?}",
+            cache_offset,
+            offset
+        );
         if cache_offset <= offset {
             return Ok(obj);
         }

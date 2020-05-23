@@ -65,35 +65,31 @@ async fn handle_stream(
     let mut message_stream = consumer.start();
 
     while let Some(message) = message_stream.next().await {
-        match crate::get_redis_conn(redis_url).await {
-            Ok(mut redis_conn) => match message {
-                Ok(m) => {
-                    if let Err(e) = handle_message(&mut redis_conn, &m)
-                        .instrument(info_span!("handle_message"))
-                        .await
-                    {
-                        let span = info_span!("handle_message error");
-                        let _enter = span.enter();
+        let fut = async {
+            match crate::get_redis_conn(redis_url).await {
+                Ok(mut redis_conn) => match message {
+                    Ok(m) => {
+                        if let Err(e) = handle_message(&mut redis_conn, &m)
+                            .instrument(info_span!("handle_message"))
+                            .await
+                        {
+                            error!("{}", e);
+                        }
+                        if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
+                            error!("{}", e);
+                        }
+                    }
+                    Err(e) => {
                         error!("{}", e);
                     }
-                    let span = info_span!("commit_message");
-                    let _enter = span.enter();
-                    if let Err(e) = consumer.commit_message(&m, CommitMode::Async) {
-                        error!("{}", e);
-                    }
-                }
+                },
                 Err(e) => {
-                    let span = info_span!("kafka message error");
-                    let _enter = span.enter();
                     error!("{}", e);
                 }
-            },
-            Err(e) => {
-                let span = info_span!("redis connect error");
-                let _enter = span.enter();
-                error!("{}", e);
             }
-        }
+        };
+        let instrumented = fut.instrument(info_span!("kafka message"));
+        instrumented.await;
     }
     Ok(())
 }

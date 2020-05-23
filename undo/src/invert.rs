@@ -1,4 +1,5 @@
 use crate::*;
+use trace_lib::TracedRequest;
 
 async fn get_all_previous_objects(
     obj_client: &mut ObjClient,
@@ -13,25 +14,23 @@ async fn get_all_previous_objects(
             obj_id: entry.obj_id.clone(),
         });
     }
+    debug!("Going to get objects: {:?}", obj_ids);
     let input = GetObjectsInput {
         file: String::from(file),
         obj_ids,
     };
     let objs_msg = obj_client
-        .get_objects(Request::new(input))
+        .get_objects(TracedRequest::new(input))
         .await?
         .into_inner();
     Ok(objs_msg.objects)
 }
 
-pub async fn invert_changes(
-    obj_client: &mut ObjClient,
-    file: &str,
+fn invert_changes_inner(
     user: &str,
     entries: Vec<UndoEntry>,
-) -> Result<Vec<ChangeMsg>, Status> {
-    let previous = get_all_previous_objects(obj_client, file, &entries).await?;
-    info!("Got previous: {:?}", previous);
+    previous: Vec<OptionChangeMsg>,
+) -> Vec<ChangeMsg> {
     let mut inverted = Vec::new();
     for (current, prev) in entries.into_iter().zip(previous.into_iter()) {
         match prev.change {
@@ -115,5 +114,16 @@ pub async fn invert_changes(
             }
         }
     }
-    Ok(inverted)
+    inverted
+}
+
+pub async fn invert_changes(
+    obj_client: &mut ObjClient,
+    file: &str,
+    user: &str,
+    entries: Vec<UndoEntry>,
+) -> Result<Vec<ChangeMsg>, Status> {
+    let previous = get_all_previous_objects(obj_client, file, &entries).await?;
+    info!("Got previous: {:?}", previous);
+    Ok(invert_changes_inner(user, entries, previous))
 }

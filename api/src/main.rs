@@ -115,7 +115,7 @@ impl api_server::Api for ApiService {
             .await;
         let changes = trace_response(resp)?;
         let resp = submit_client
-            .submit_changes(Request::new(submit::SubmitChangesInput {
+            .submit_changes(TracedRequest::new(submit::SubmitChangesInput {
                 file: prefix.file,
                 user: prefix.user,
                 offset: prefix.offset,
@@ -149,7 +149,7 @@ impl api_server::Api for ApiService {
                 .map_err(unavailable)?;
         let prefix = Prefix::new(msg.prefix)?;
         let resp = undo_client
-            .redo_latest(Request::new(undo::RedoLatestInput {
+            .redo_latest(TracedRequest::new(undo::RedoLatestInput {
                 file: prefix.file.clone(),
                 user: prefix.user.clone(),
             }))

@@ -66,8 +66,6 @@ async fn create_floor(
     info!("Undone");
     prefix.offset = redo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
     info!("Redone");
-    prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
-    info!("Undone");
     Ok((prefix.offset, vec![id_1, id_2, id_3, id_4]))
 }
 
