@@ -74,17 +74,47 @@ async fn push_undo_event(
     Ok(())
 }
 
-async fn pop_undo_event(
+async fn pop_from_entry(
+    redis_conn: &mut MultiplexedConnection,
+    file: &str,
+    event: String,
+    obj_id: &str,
+) -> Result<UndoEntry, UndoError> {
+    let list = get_undo_event_list(redis_conn, &event).await?;
+    let mut result = None;
+    for entry in list {
+        if entry.obj_id == obj_id {
+            //We have to do this because Redis doesn't have a remove by index
+            let serialized = bincode::serialize(&entry)?;
+            redis_conn.lrem(event, 1, serialized).await?;
+            result = Some(entry);
+            break;
+        }
+    }
+    match result {
+        Some(entry) => Ok(entry),
+        None => Err(UndoError::NoObjInUndoEvent(
+            String::from(obj_id),
+            event,
+            String::from(file),
+        )),
+    }
+}
+
+async fn pop_undo_entry(
     redis_conn: &mut MultiplexedConnection,
     file: &str,
     user: &str,
-) -> Result<String, UndoError> {
+    obj_id: &str,
+) -> Result<UndoEntry, UndoError> {
     let undo_stack = undo_stack(file, user);
     trace!("Undo stack: {:?}", undo_stack);
-    let event: Option<String> = redis_conn.rpop(undo_stack).await?;
-    trace!("popped event: {:?}", event);
+    let event: Option<String> = redis_conn.lindex(undo_stack, -1).await?;
     match event {
-        Some(event) => Ok(event),
+        Some(event) => {
+            let entry = pop_from_entry(redis_conn, file, event, obj_id).await?;
+            Ok(entry)
+        }
         None => Err(UndoError::NoUndoEvent(
             String::from(user),
             String::from(file),
@@ -107,11 +137,16 @@ async fn pop_redo_event(
     redis_conn: &mut MultiplexedConnection,
     file: &str,
     user: &str,
-) -> Result<String, UndoError> {
+    obj_id: &str,
+) -> Result<UndoEntry, UndoError> {
     let redo_stack = redo_stack(file, user);
-    let event: Option<String> = redis_conn.rpop(redo_stack).await?;
+    trace!("Redo stack: {:?}", redo_stack);
+    let event: Option<String> = redis_conn.lindex(redo_stack, -1).await?;
     match event {
-        Some(event) => Ok(event),
+        Some(event) => {
+            let entry = pop_from_entry(redis_conn, file, event, obj_id).await?;
+            Ok(entry)
+        }
         None => Err(UndoError::NoUndoEvent(
             String::from(user),
             String::from(file),
@@ -137,6 +172,17 @@ async fn update_undo_event(
         }
         None => Err(UndoError::NoUndoEvent(user, String::from(file))),
     }
+}
+
+async fn (
+    redis_conn: &mut MultiplexedConnection,
+    file: &str,
+    user: &str,
+    obj_id: &str,
+    new_offset: i64,
+    new_change_type: UndoChangeType
+) -> Result<(), UndoError> {
+    pop_undo_entry(redis_conn, file, user, obj_id)
 }
 
 pub async fn update_undo_cache(

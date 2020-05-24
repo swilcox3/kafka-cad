@@ -35,6 +35,8 @@ type ObjClient = objects_client::ObjectsClient<Channel>;
 pub enum UndoError {
     #[error("No events to undo for user {0} in file {1}")]
     NoUndoEvent(String, String),
+    #[error("Obj {0} not found in undo event {1} in file {2}")]
+    NoObjInUndoEvent(String, String, String),
     #[error("Prost encode error: {0}")]
     ProstEncodeError(#[from] prost::EncodeError),
     #[error("Prost decode error: {0}")]

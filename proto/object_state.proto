@@ -52,4 +52,10 @@ message ChangeMsg {
         ObjectMsg modify = 3;
         DeleteMsg delete = 4;
     }
+    enum ChangeSource {
+        USER = 0;
+        UNDO = 1;
+        REDO = 2;
+    }
+    ChangeSource change_source = 5;
 }
