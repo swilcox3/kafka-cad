@@ -1,6 +1,7 @@
 # kafka-cad
 ![Build](https://github.com/swilcox3/kafka-cad/workflows/Build/badge.svg) ![Unit Tests](https://github.com/swilcox3/kafka-cad/workflows/Unit%20Tests/badge.svg)
 
+_This project is under active development and is no way ready for actual use.  Project management on Trello: https://trello.com/b/jT2QyaSC_
 
 This is a cloud-native architectural CAD prototype, with these design pillars:
 1. The user will never lose work or corrupt data.
@@ -38,9 +39,8 @@ The general control flow goes like this:
 
 # Running the application
 1. Go to ./ui and run `npm run build`.  
-2. Go to this directory and run `docker-compose up -d --build`.  It'll take a while the first time, especially for the geometry kernel.
-3. In a browser, go to localhost:8080.
-4. Run python scripts in the tests directory.
+2. Go to the root directory and run `docker-compose up -d --build`.  It'll take a while the first time, especially for the geometry kernel.
+3. Run python scripts in the tests directory.  The UI is currently just a viewer and will pop up in your browser automatically.
 
 
 
