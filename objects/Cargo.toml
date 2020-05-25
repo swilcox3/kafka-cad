@@ -16,8 +16,10 @@ tonic = "0.2.1"
 tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
 thiserror = "1.0.9"
 trace_lib = {path = "../trace-lib"}
-tracing = "0.1.14"
+tracing = { version = "0.1.14", features = ["log", "attributes", "std"]}
 tracing-futures = "0.2.4"
+serde = {version = "1.0.104", features = ["derive"]}
+bincode = "1.2.1"
 
 [dev-dependencies]
 tokio-macros = "0.2.4"

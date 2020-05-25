@@ -138,3 +138,90 @@ pub async fn invert_changes(
     info!("Got previous: {:?}", previous);
     Ok(invert_changes_inner(user, source, entries, previous))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_invert_changes_inner() {
+        let user_1 = String::from("test user");
+        let user_2 = String::from("prev user");
+        let source = change_msg::ChangeSource::Undo(String::from("test event"));
+        let obj_1 = String::from("obj_1");
+        let obj_2 = String::from("obj_2");
+        let obj_3 = String::from("obj_3");
+        let entries = vec![
+            UndoEntry {
+                obj_id: obj_1.clone(),
+                offset: 1,
+                change_type: UndoChangeType::Add,
+            },
+            UndoEntry {
+                obj_id: obj_2.clone(),
+                offset: 2,
+                change_type: UndoChangeType::Modify,
+            },
+            UndoEntry {
+                obj_id: obj_3.clone(),
+                offset: 3,
+                change_type: UndoChangeType::Delete,
+            },
+        ];
+        let previous = vec![
+            OptionChangeMsg { change: None },
+            OptionChangeMsg {
+                change: Some(ChangeMsg {
+                    user: user_2.clone(),
+                    change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                        id: obj_2.clone(),
+                        dependencies: None,
+                        obj_data: String::from("Object 2 data").into_bytes(),
+                    })),
+                    change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
+                }),
+            },
+            OptionChangeMsg {
+                change: Some(ChangeMsg {
+                    user: user_2.clone(),
+                    change_type: Some(change_msg::ChangeType::Modify(ObjectMsg {
+                        id: obj_3.clone(),
+                        dependencies: None,
+                        obj_data: String::from("Object 3 data").into_bytes(),
+                    })),
+                    change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
+                }),
+            },
+        ];
+        let inverted = invert_changes_inner(&user_1, source.clone(), entries, previous);
+        let answers = vec![
+            ChangeMsg {
+                user: user_1.clone(),
+                change_type: Some(change_msg::ChangeType::Delete(DeleteMsg { id: obj_1 })),
+                change_source: Some(source.clone()),
+            },
+            ChangeMsg {
+                user: user_1.clone(),
+                change_type: Some(change_msg::ChangeType::Modify(ObjectMsg {
+                    id: obj_2.clone(),
+                    dependencies: None,
+                    obj_data: String::from("Object 2 data").into_bytes(),
+                })),
+                change_source: Some(source.clone()),
+            },
+            ChangeMsg {
+                user: user_1.clone(),
+                change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                    id: obj_3.clone(),
+                    dependencies: None,
+                    obj_data: String::from("Object 3 data").into_bytes(),
+                })),
+                change_source: Some(source.clone()),
+            },
+        ];
+        //Splitting up these asserts so we zero in on which one is wrong
+        assert_eq!(inverted[0], answers[0]);
+        assert_eq!(inverted[1], answers[1]);
+        assert_eq!(inverted[2], answers[2]);
+    }
+}

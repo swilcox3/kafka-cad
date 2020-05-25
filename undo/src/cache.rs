@@ -323,7 +323,101 @@ mod tests {
         let file = Uuid::new_v4().to_string();
         let user = Uuid::new_v4().to_string();
         let obj_1 = Uuid::new_v4().to_string();
+
         begin_undo_event(&mut conn, &file, &user).await.unwrap();
+
         let offset = 1;
+        let msg = ChangeMsg {
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                id: obj_1.clone(),
+                dependencies: None,
+                obj_data: Vec::new(),
+            })),
+            change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
+        };
+        update_undo_cache_inner(&mut conn, &file, offset, msg)
+            .await
+            .unwrap();
+
+        let (event, list) = undo(&mut conn, &file, &user).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].obj_id, obj_1);
+        assert_eq!(list[0].offset, offset);
+        assert_eq!(list[0].change_type, UndoChangeType::Add);
+
+        let offset = 2;
+        let undo_msg = ChangeMsg {
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {
+                id: obj_1.clone(),
+            })),
+            change_source: Some(change_msg::ChangeSource::Undo(event)),
+        };
+        update_undo_cache_inner(&mut conn, &file, offset, undo_msg)
+            .await
+            .unwrap();
+
+        //Undo again, there shouldn't be an undo event anymore so this should throw an error
+        assert!(undo(&mut conn, &file, &user).await.is_err());
+
+        let (event, list) = redo(&mut conn, &file, &user).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].obj_id, obj_1);
+        assert_eq!(list[0].offset, offset);
+        assert_eq!(list[0].change_type, UndoChangeType::Delete);
+
+        let offset = 3;
+        let redo_msg = ChangeMsg {
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                id: obj_1.clone(),
+                dependencies: None,
+                obj_data: Vec::new(),
+            })),
+            change_source: Some(change_msg::ChangeSource::Redo(event)),
+        };
+        update_undo_cache_inner(&mut conn, &file, offset, redo_msg)
+            .await
+            .unwrap();
+
+        //Redo again, there shouldn't be a redo event anymore so this should throw an error
+        assert!(redo(&mut conn, &file, &user).await.is_err());
+
+        //Now undo/redo again
+        let (event, list) = undo(&mut conn, &file, &user).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].obj_id, obj_1);
+        assert_eq!(list[0].offset, offset);
+        assert_eq!(list[0].change_type, UndoChangeType::Add);
+        let offset = 4;
+        let undo_msg = ChangeMsg {
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {
+                id: obj_1.clone(),
+            })),
+            change_source: Some(change_msg::ChangeSource::Undo(event)),
+        };
+        update_undo_cache_inner(&mut conn, &file, offset, undo_msg)
+            .await
+            .unwrap();
+        let (event, list) = redo(&mut conn, &file, &user).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].obj_id, obj_1);
+        assert_eq!(list[0].offset, offset);
+        assert_eq!(list[0].change_type, UndoChangeType::Delete);
+        let offset = 5;
+        let redo_msg = ChangeMsg {
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                id: obj_1.clone(),
+                dependencies: None,
+                obj_data: Vec::new(),
+            })),
+            change_source: Some(change_msg::ChangeSource::Redo(event)),
+        };
+        update_undo_cache_inner(&mut conn, &file, offset, redo_msg)
+            .await
+            .unwrap();
     }
 }

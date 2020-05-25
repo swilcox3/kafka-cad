@@ -4,6 +4,7 @@
 use prost::Message;
 use redis::aio::MultiplexedConnection;
 use redis::AsyncCommands;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::*;
 
@@ -32,6 +33,8 @@ pub enum ObjError {
     ProstDecodeError(#[from] prost::DecodeError),
     #[error("Redis error: {0:?}")]
     DatabaseError(#[from] redis::RedisError),
+    #[error("Bincode error: {0}")]
+    BincodeError(#[from] bincode::Error),
 }
 
 impl Into<tonic::Status> for ObjError {
@@ -39,6 +42,7 @@ impl Into<tonic::Status> for ObjError {
         let msg = format!("{}", self);
         let code = match self {
             ObjError::DatabaseError(..)
+            | ObjError::BincodeError(..)
             | ObjError::ProstEncodeError(..)
             | ObjError::ProstDecodeError(..) => tonic::Code::Internal,
             ObjError::ObjNotFound(..) => tonic::Code::NotFound,
@@ -60,6 +64,12 @@ fn file_offset(file: &str) -> String {
     format!("{}:offset", file)
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct ObjEntry {
+    offset: i64,
+    object: Vec<u8>,
+}
+
 async fn store_object_change(
     conn: &mut MultiplexedConnection,
     file: &str,
@@ -68,7 +78,17 @@ async fn store_object_change(
     obj: &[u8],
 ) -> Result<(), ObjError> {
     let obj_cache = obj_cache(file, key);
-    conn.lpush(&obj_cache, (offset, obj)).await?;
+    trace!(
+        "Pushing obj at offset {} to obj_cache {:?}",
+        offset,
+        obj_cache
+    );
+    let entry = ObjEntry {
+        offset,
+        object: Vec::from(obj),
+    };
+    let serialized = bincode::serialize(&entry)?;
+    conn.lpush(&obj_cache, serialized).await?;
     Ok(())
 }
 
@@ -78,6 +98,7 @@ async fn store_file_offset(
     offset: i64,
 ) -> Result<(), ObjError> {
     let file_offset = file_offset(file);
+    trace!("Setting file {} to offset {}", file, offset);
     conn.set(file_offset, offset).await?;
     Ok(())
 }
@@ -88,21 +109,28 @@ async fn get_object(
     offset: i64,
     key: &str,
 ) -> Result<Vec<u8>, ObjError> {
+    trace!(
+        "getting object {:?} in file {:?} at offset {}",
+        key,
+        file,
+        offset
+    );
     let obj_cache = obj_cache(file, key);
-    let cache_length: u64 = conn.llen(&obj_cache).await?;
+    let cache_length: isize = conn.llen(&obj_cache).await?;
     debug!("Cache length: {:?}", cache_length);
     if cache_length == 0 {
         return Err(ObjError::ObjNotFound(String::from(key)));
     }
-    for i in 0isize..cache_length as isize {
-        let (cache_offset, obj): (i64, Vec<u8>) = conn.lrange(&obj_cache, i, i + 1).await?;
+    for i in 0isize..cache_length {
+        let serialized: Vec<u8> = conn.lindex(&obj_cache, i).await?;
+        let entry: ObjEntry = bincode::deserialize(&serialized)?;
         trace!(
             "Comparing cache_offset {:?} to offset {:?}",
-            cache_offset,
+            entry.offset,
             offset
         );
-        if cache_offset <= offset {
-            return Ok(obj);
+        if entry.offset <= offset {
+            return Ok(entry.object);
         }
     }
     Err(ObjError::ObjNotFound(String::from(key)))
@@ -115,7 +143,7 @@ pub async fn update_object_cache(
     input: &[u8],
 ) -> Result<(), ObjError> {
     let object = object_state::ChangeMsg::decode(input)?;
-    info!("Object received: {:?}", object);
+    info!("Updating object cache: {:?}", object);
     let id = match object.change_type {
         Some(change_msg::ChangeType::Add(object))
         | Some(change_msg::ChangeType::Modify(object)) => object.id.clone(),
@@ -208,6 +236,10 @@ mod tests {
         let mut change_1_bytes = Vec::new();
         change_1.encode(&mut change_1_bytes).unwrap();
         let offset_1 = 4;
+
+        //Nothing in cache yet, this should error out
+        assert!(get_object(&mut conn, &file, offset_1, &id).await.is_err());
+
         update_object_cache(&mut conn, &file, offset_1, &change_1_bytes)
             .await
             .unwrap();
@@ -252,6 +284,13 @@ mod tests {
             change_3_bytes
         );
 
-        assert!(get_object(&mut conn, &file, offset_1, &id).await.is_err());
+        assert_eq!(
+            get_object(&mut conn, &file, offset_1, &id).await.unwrap(),
+            change_1_bytes
+        );
+
+        assert!(get_object(&mut conn, &file, offset_1 - 1, &id)
+            .await
+            .is_err());
     }
 }
