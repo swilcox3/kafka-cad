@@ -1,4 +1,5 @@
 # kafka-cad
+![Build](https://github.com/swilcox3/kafka-cad/workflows/Build/badge.svg) ![Unit Tests](https://github.com/swilcox3/kafka-cad/workflows/Unit%20Tests/badge.svg)
 This is a cloud-native architectural CAD prototype.  A browser-based UI 
 
 
