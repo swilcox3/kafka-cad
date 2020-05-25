@@ -213,6 +213,9 @@ impl api_server::Api for ApiService {
             changes.push(object_state::ChangeMsg {
                 user: prefix.user.clone(),
                 change_type: Some(object_state::change_msg::ChangeType::Add(obj)),
+                change_source: Some(object_state::change_msg::ChangeSource::UserAction(
+                    object_state::EmptyMsg {},
+                )),
             });
         }
 

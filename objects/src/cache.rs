@@ -203,6 +203,7 @@ mod tests {
                 dependencies: None,
                 obj_data: vec![],
             })),
+            change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
         };
         let mut change_1_bytes = Vec::new();
         change_1.encode(&mut change_1_bytes).unwrap();
@@ -222,6 +223,7 @@ mod tests {
                 dependencies: None,
                 obj_data: String::from("modified").into_bytes(),
             })),
+            change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
         };
         let mut change_2_bytes = Vec::new();
         change_2.encode(&mut change_2_bytes).unwrap();
@@ -237,6 +239,7 @@ mod tests {
         let change_3 = ChangeMsg {
             user: user.clone(),
             change_type: Some(change_msg::ChangeType::Delete(DeleteMsg { id: id.clone() })),
+            change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
         };
         let mut change_3_bytes = Vec::new();
         change_3.encode(&mut change_3_bytes).unwrap();

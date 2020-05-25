@@ -1,9 +1,10 @@
 syntax = "proto3";
 import "geom.proto";
 
+//This defines the types that get pushed to the ObjectState Kafka topic.
 package object_state;
 
-//This defines the types that get pushed to the ObjectState Kafka topic.
+message EmptyMsg {}
 
 message RefIDMsg {
     string id = 1;
@@ -52,10 +53,9 @@ message ChangeMsg {
         ObjectMsg modify = 3;
         DeleteMsg delete = 4;
     }
-    enum ChangeSource {
-        USER = 0;
-        UNDO = 1;
-        REDO = 2;
+    oneof change_source {
+        EmptyMsg user_action = 5;
+        string undo = 6;
+        string redo = 7;
     }
-    ChangeSource change_source = 5;
 }

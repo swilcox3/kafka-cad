@@ -75,6 +75,7 @@ fn add_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8> {
             dependencies: Some(DependenciesMsg { references }),
             obj_data: Vec::new(),
         })),
+        change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
     };
     let mut bytes = Vec::new();
     msg.encode(&mut bytes).unwrap();
@@ -89,6 +90,7 @@ fn modify_change_msg(id: String, references: Vec<OptionReferenceMsg>) -> Vec<u8>
             dependencies: Some(DependenciesMsg { references }),
             obj_data: Vec::new(),
         })),
+        change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
     };
     let mut bytes = Vec::new();
     msg.encode(&mut bytes).unwrap();
@@ -99,6 +101,7 @@ fn delete_change_msg(id: String) -> Vec<u8> {
     let msg = ChangeMsg {
         user: "Doesn't matter".to_string(),
         change_type: Some(ChangeType::Delete(DeleteMsg { id })),
+        change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
     };
     let mut bytes = Vec::new();
     msg.encode(&mut bytes).unwrap();

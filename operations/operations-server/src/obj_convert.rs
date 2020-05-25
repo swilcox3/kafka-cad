@@ -201,6 +201,7 @@ pub fn to_change_msgs(
                             let change = ChangeMsg {
                                 user: old_change.user.clone(),
                                 change_type: Some(change_msg::ChangeType::Add(to_object_msg(obj)?)),
+                                change_source: old_change.change_source.clone(),
                             };
                             results.push(change);
                         }
@@ -212,6 +213,7 @@ pub fn to_change_msgs(
                                 change_type: Some(change_msg::ChangeType::Modify(to_object_msg(
                                     obj,
                                 )?)),
+                                change_source: old_change.change_source.clone(),
                             };
                             results.push(change);
                         }
@@ -222,6 +224,7 @@ pub fn to_change_msgs(
                             change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {
                                 id: id.to_string(),
                             })),
+                            change_source: old_change.change_source.clone(),
                         };
                         results.push(change);
                     }
@@ -229,6 +232,7 @@ pub fn to_change_msgs(
                         results.push(ChangeMsg {
                             user: old_change.user.clone(),
                             change_type: None,
+                            change_source: old_change.change_source.clone(),
                         });
                     }
                 }
@@ -303,7 +307,6 @@ fn encode_instance(instance: InstanceData) -> InstanceDataMsg {
         meta_json,
     }
 }
-
 
 fn encode_rgba(color: RGBA) -> Option<RgbaMsg> {
     Some(RgbaMsg {
@@ -405,6 +408,6 @@ pub fn encode_update_output(
     let encoded_views = encode_views(views);
     UpdateOutputMsg {
         output: encoded_output,
-        views: encoded_views
+        views: encoded_views,
     }
 }

@@ -55,7 +55,7 @@ impl Into<tonic::Status> for UndoError {
             | UndoError::ProstEncodeError(..)
             | UndoError::BincodeError(..)
             | UndoError::ProstDecodeError(..) => tonic::Code::Internal,
-            UndoError::NoUndoEvent(..) => tonic::Code::NotFound,
+            UndoError::NoUndoEvent(..) | UndoError::NoObjInUndoEvent(..) => tonic::Code::NotFound,
         };
         tonic::Status::new(code, msg)
     }
@@ -97,14 +97,12 @@ impl undo_server::Undo for UndoService {
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
         propagate_trace(request.metadata());
-        info!("Request: {:?}", request);
         let msg = request.get_ref();
         let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         cache::begin_undo_event(&mut redis_conn, &msg.file, &msg.user)
             .instrument(info_span!("cache::begin_undo_event"))
             .await
             .map_err(to_status)?;
-        info!("This doesn't get logged");
         Ok(Response::new(BeginUndoEventOutput {}))
     }
 
@@ -114,66 +112,54 @@ impl undo_server::Undo for UndoService {
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
         propagate_trace(request.metadata());
-        info!("Request: {:?}", request);
         let msg = request.get_ref();
         let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
             .instrument(info_span!("objects_client::connect"))
             .await
             .map_err(unavailable)?;
-        let latest = cache::undo(&mut redis_conn, &msg.file, &msg.user)
+        let (event, latest) = cache::undo(&mut redis_conn, &msg.file, &msg.user)
             .instrument(info_span!("cache::undo"))
             .await
             .map_err(to_status)?;
-        match invert::invert_changes(&mut obj_client, &msg.file, &msg.user, latest)
-            .instrument(info_span!("invert_changes"))
-            .await
-        {
-            Ok(changes) => {
-                info!("Got changes {:?}", changes);
-                Ok(Response::new(UndoLatestOutput { changes }))
-            }
-            Err(e) => {
-                error!("Got error {:?}, redoing", e);
-                cache::redo(&mut redis_conn, &msg.file, &msg.user)
-                    .instrument(info_span!("redo"))
-                    .await
-                    .map_err(to_status)?;
-                Err(e)
-            }
-        }
+        let changes = invert::invert_changes(
+            &mut obj_client,
+            &msg.file,
+            &msg.user,
+            change_msg::ChangeSource::Undo(event),
+            latest,
+        )
+        .instrument(info_span!("invert_changes"))
+        .await?;
+        Ok(Response::new(UndoLatestOutput { changes }))
     }
 
+    #[instrument]
     async fn redo_latest(
         &self,
         request: Request<RedoLatestInput>,
     ) -> Result<Response<RedoLatestOutput>, Status> {
         propagate_trace(request.metadata());
-        info!("Request: {:?}", request);
         let msg = request.get_ref();
         let mut redis_conn = get_redis_conn(&self.redis_url).await?;
         let mut obj_client = objects_client::ObjectsClient::connect(self.obj_url.clone())
-            .in_current_span()
+            .instrument(info_span!("objects_client::connect"))
             .await
             .map_err(unavailable)?;
-        let latest = cache::redo(&mut redis_conn, &msg.file, &msg.user)
-            .in_current_span()
+        let (event, latest) = cache::redo(&mut redis_conn, &msg.file, &msg.user)
+            .instrument(info_span!("redo"))
             .await
             .map_err(to_status)?;
-        match invert::invert_changes(&mut obj_client, &msg.file, &msg.user, latest).await {
-            Ok(changes) => {
-                info!("Got changes {:?}", changes);
-                Ok(Response::new(RedoLatestOutput { changes }))
-            }
-            Err(e) => {
-                error!("Got error {:?}, undoing", e);
-                cache::undo(&mut redis_conn, &msg.file, &msg.user)
-                    .in_current_span()
-                    .await
-                    .map_err(to_status)?;
-                Err(e)
-            }
-        }
+        let changes = invert::invert_changes(
+            &mut obj_client,
+            &msg.file,
+            &msg.user,
+            change_msg::ChangeSource::Redo(event),
+            latest,
+        )
+        .instrument(info_span!("invert_changes"))
+        .await?;
+        Ok(Response::new(RedoLatestOutput { changes }))
     }
 }
 

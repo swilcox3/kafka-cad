@@ -28,11 +28,13 @@ async fn get_all_previous_objects(
 
 fn invert_changes_inner(
     user: &str,
+    source: change_msg::ChangeSource,
     entries: Vec<UndoEntry>,
     previous: Vec<OptionChangeMsg>,
 ) -> Vec<ChangeMsg> {
     let mut inverted = Vec::new();
     for (current, prev) in entries.into_iter().zip(previous.into_iter()) {
+        let source = source.clone();
         match prev.change {
             Some(prev_change) => match current.change_type {
                 UndoChangeType::Add => {
@@ -41,6 +43,7 @@ fn invert_changes_inner(
                         change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {
                             id: current.obj_id,
                         })),
+                        change_source: Some(source),
                     });
                 }
                 UndoChangeType::Modify => match prev_change.change_type {
@@ -48,12 +51,14 @@ fn invert_changes_inner(
                         inverted.push(ChangeMsg {
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Modify(prev_object)),
+                            change_source: Some(source),
                         });
                     }
                     Some(change_msg::ChangeType::Modify(prev_object)) => {
                         inverted.push(ChangeMsg {
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Modify(prev_object)),
+                            change_source: Some(source),
                         });
                     }
                     Some(change_msg::ChangeType::Delete(..)) => {
@@ -68,12 +73,14 @@ fn invert_changes_inner(
                         inverted.push(ChangeMsg {
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Add(prev_object)),
+                            change_source: Some(source),
                         });
                     }
                     Some(change_msg::ChangeType::Modify(prev_object)) => {
                         inverted.push(ChangeMsg {
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Add(prev_object)),
+                            change_source: Some(source),
                         });
                     }
                     Some(change_msg::ChangeType::Delete(..)) => {
@@ -88,12 +95,14 @@ fn invert_changes_inner(
                         inverted.push(ChangeMsg {
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Add(prev_object)),
+                            change_source: Some(source),
                         });
                     }
                     Some(change_msg::ChangeType::Modify(prev_object)) => {
                         inverted.push(ChangeMsg {
                             user: String::from(user),
                             change_type: Some(change_msg::ChangeType::Add(prev_object)),
+                            change_source: Some(source),
                         });
                     }
                     Some(change_msg::ChangeType::Delete(..)) => {
@@ -110,6 +119,7 @@ fn invert_changes_inner(
                     change_type: Some(change_msg::ChangeType::Delete(DeleteMsg {
                         id: current.obj_id,
                     })),
+                    change_source: Some(source),
                 });
             }
         }
@@ -121,9 +131,10 @@ pub async fn invert_changes(
     obj_client: &mut ObjClient,
     file: &str,
     user: &str,
+    source: change_msg::ChangeSource,
     entries: Vec<UndoEntry>,
 ) -> Result<Vec<ChangeMsg>, Status> {
     let previous = get_all_previous_objects(obj_client, file, &entries).await?;
     info!("Got previous: {:?}", previous);
-    Ok(invert_changes_inner(user, entries, previous))
+    Ok(invert_changes_inner(user, source, entries, previous))
 }
