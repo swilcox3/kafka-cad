@@ -14,40 +14,44 @@ pub use api::*;
 
 pub type ApiClient = api_client::ApiClient<Channel>;
 
-pub async fn begin_undo_event(
-    client: &mut ApiClient,
-    file: &String,
-    user: &String,
-) -> Result<()> {
+pub async fn begin_undo_event(client: &mut ApiClient, file: &String, user: &String) -> Result<()> {
     let undo_input = BeginUndoEventInput {
         file: file.clone(),
         user: user.clone(),
     };
-    client
-        .begin_undo_event(Request::new(undo_input))
-        .await?;
+    client.begin_undo_event(Request::new(undo_input)).await?;
     Ok(())
 }
 
-pub async fn undo_latest(client: &mut ApiClient, file: &String, user: &String, offset: i64) -> Result<i64> {
+pub async fn undo_latest(
+    client: &mut ApiClient,
+    file: &String,
+    user: &String,
+    offset: i64,
+) -> Result<i64> {
     let input = UndoLatestInput {
         prefix: Some(OpPrefixMsg {
             file: file.clone(),
             user: user.clone(),
-            offset
-        })
+            offset,
+        }),
     };
     let output = client.undo_latest(Request::new(input)).await?.into_inner();
     Ok(output.offset)
 }
 
-pub async fn redo_latest(client: &mut ApiClient, file: &String, user: &String, offset: i64) -> Result<i64> {
+pub async fn redo_latest(
+    client: &mut ApiClient,
+    file: &String,
+    user: &String,
+    offset: i64,
+) -> Result<i64> {
     let input = RedoLatestInput {
         prefix: Some(OpPrefixMsg {
             file: file.clone(),
             user: user.clone(),
-            offset
-        })
+            offset,
+        }),
     };
     let output = client.redo_latest(Request::new(input)).await?.into_inner();
     Ok(output.offset)
@@ -86,24 +90,16 @@ pub async fn redo_latest(client: &mut ApiClient, file: &String, user: &String, o
     Ok(output.change)
 }*/
 
-pub async fn create_wall(
+pub async fn create_walls(
     client: &mut ApiClient,
     prefix: &OpPrefixMsg,
-    first_pt: &Point3Msg,
-    second_pt: &Point3Msg,
-    width: f64,
-    height: f64,
-) -> Result<(i64, String)> {
+    walls: Vec<WallApiMsg>,
+) -> Result<(i64, Vec<String>)> {
     let input = CreateWallsInput {
         prefix: Some(prefix.clone()),
-        walls: vec![ WallApiMsg {
-        first_pt: Some(first_pt.clone()),
-        second_pt: Some(second_pt.clone()),
-        width,
-        height,
-        }]
+        walls,
     };
 
-    let mut output = client.create_walls(Request::new(input)).await?.into_inner();
-    Ok((output.offset, output.obj_ids.pop().ok_or(anyhow!("No ids returned"))?))
+    let output = client.create_walls(Request::new(input)).await?.into_inner();
+    Ok((output.offset, output.obj_ids))
 }

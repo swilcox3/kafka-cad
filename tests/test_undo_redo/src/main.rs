@@ -36,18 +36,34 @@ async fn create_floor(
         y: length,
         z,
     };
-    let (offset, id_1) = create_wall(client, &prefix, &pt_1, &pt_2, width, height).await?;
-    info!("wall 1: {:?}", id_1);
+    let walls = vec![
+        WallApiMsg {
+            first_pt: Some(pt_1.clone()),
+            second_pt: Some(pt_2.clone()),
+            width,
+            height,
+        },
+        WallApiMsg {
+            first_pt: Some(pt_2.clone()),
+            second_pt: Some(pt_3.clone()),
+            width,
+            height,
+        },
+        WallApiMsg {
+            first_pt: Some(pt_3.clone()),
+            second_pt: Some(pt_4.clone()),
+            width,
+            height,
+        },
+        WallApiMsg {
+            first_pt: Some(pt_4.clone()),
+            second_pt: Some(pt_1.clone()),
+            width,
+            height,
+        },
+    ];
+    let (offset, ids) = create_walls(client, &prefix, walls).await?;
     prefix.offset = offset;
-    let (offset, id_2) = create_wall(client, &prefix, &pt_2, &pt_3, width, height).await?;
-    info!("wall 2: {:?}", id_2);
-    prefix.offset = offset;
-    let (offset, id_3) = create_wall(client, &prefix, &pt_3, &pt_4, width, height).await?;
-    info!("wall 3: {:?}", id_3);
-    prefix.offset = offset;
-    let (offset, id_4) = create_wall(client, &prefix, &pt_4, &pt_1, width, height).await?;
-    prefix.offset = offset;
-    info!("wall 4: {:?}", id_4);
     /*prefix.offset = join_objs_at_pt(client, &prefix, &id_1, &id_2, &pt_2).await?;
     prefix.offset = join_objs_at_pt(client, &prefix, &id_2, &id_3, &pt_3).await?;
     prefix.offset = join_objs_at_pt(client, &prefix, &id_3, &id_4, &pt_4).await?;
@@ -66,7 +82,7 @@ async fn create_floor(
     info!("Undone");
     prefix.offset = redo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
     info!("Redone");
-    Ok((prefix.offset, vec![id_1, id_2, id_3, id_4]))
+    Ok((prefix.offset, ids))
 }
 
 #[tokio::main]

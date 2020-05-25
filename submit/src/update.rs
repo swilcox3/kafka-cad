@@ -35,17 +35,22 @@ async fn get_all_dependencies(
     offset: i64,
     ids: Vec<RefIdMsg>,
 ) -> Result<Vec<ReferenceMsg>, tonic::Status> {
-    let input = GetAllDependenciesInput {
-        file: file.clone(),
-        offset,
-        ids,
-    };
-    let resp = dep_client
-        .get_all_dependencies(TracedRequest::new(input))
-        .instrument(info_span!("get_all_dependencies"))
-        .await;
-    let refers = trace_response(resp)?.references;
-    Ok(refers)
+    if ids.len() > 0 {
+        let input = GetAllDependenciesInput {
+            file: file.clone(),
+            offset,
+            ids,
+        };
+        let resp = dep_client
+            .get_all_dependencies(TracedRequest::new(input))
+            .instrument(info_span!("get_all_dependencies"))
+            .await;
+        let refers = trace_response(resp)?.references;
+        Ok(refers)
+    } else {
+        debug!("No dependencies to get, skipping call to service");
+        Ok(Vec::new())
+    }
 }
 
 fn get_obj_ids_to_fetch(
@@ -75,27 +80,32 @@ async fn get_objects_to_update(
     user: String,
     obj_ids: Vec<String>,
 ) -> Result<Vec<ChangeMsg>, tonic::Status> {
-    let mut entries = Vec::new();
-    for id in obj_ids {
-        entries.push(ObjectAtOffset { offset, obj_id: id });
-    }
-    let input = GetObjectsInput {
-        file: file.clone(),
-        obj_ids: entries,
-    };
-    let resp = obj_client
-        .get_objects(TracedRequest::new(input))
-        .instrument(info_span!("get_objects"))
-        .await;
-    let objs_msg = trace_response(resp)?;
-    let mut results = Vec::new();
-    for change_opt in objs_msg.objects {
-        if let Some(mut change) = change_opt.change {
-            change.user = user.clone();
-            results.push(change);
+    if obj_ids.len() > 0 {
+        let mut entries = Vec::new();
+        for id in obj_ids {
+            entries.push(ObjectAtOffset { offset, obj_id: id });
         }
+        let input = GetObjectsInput {
+            file: file.clone(),
+            obj_ids: entries,
+        };
+        let resp = obj_client
+            .get_objects(TracedRequest::new(input))
+            .instrument(info_span!("get_objects"))
+            .await;
+        let objs_msg = trace_response(resp)?;
+        let mut results = Vec::new();
+        for change_opt in objs_msg.objects {
+            if let Some(mut change) = change_opt.change {
+                change.user = user.clone();
+                results.push(change);
+            }
+        }
+        Ok(results)
+    } else {
+        debug!("No objects to get, skipping call to service");
+        Ok(Vec::new())
     }
-    Ok(results)
 }
 
 async fn update(
