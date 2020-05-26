@@ -37,6 +37,12 @@ message Point3Msg {
     double z = 3;
 }
 
+message Vector3Msg {
+    double x = 1;
+    double y = 2;
+    double z = 3;
+}
+
 message LineMsg {
     Point3Msg first = 1;
     Point3Msg second = 2;

@@ -8,6 +8,7 @@ fn main() {
                 "../proto/geom.proto",
                 "../proto/object_state.proto",
                 "../proto/operations.proto",
+                "../proto/objects.proto",
                 "../proto/undo.proto",
                 "../proto/representation.proto",
                 "../proto/submit.proto",

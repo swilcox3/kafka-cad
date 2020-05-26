@@ -67,17 +67,16 @@ async fn create_floor(
     /*prefix.offset = join_objs_at_pt(client, &prefix, &id_1, &id_2, &pt_2).await?;
     prefix.offset = join_objs_at_pt(client, &prefix, &id_2, &id_3, &pt_3).await?;
     prefix.offset = join_objs_at_pt(client, &prefix, &id_3, &id_4, &pt_4).await?;
-    prefix.offset = join_objs_at_pt(client, &prefix, &id_4, &id_1, &pt_1).await?;
+    prefix.offset = join_objs_at_pt(client, &prefix, &id_4, &id_1, &pt_1).await?;*/
 
+    begin_undo_event(client, &file, &user).await?;
     let delta = Vector3Msg {
         x: length / 2.0,
         y: 0.0,
         z: 0.0,
     };
-    prefix.offset = move_objects(client, &prefix, vec![id_2.clone()], &delta).await?;
-    prefix.event = begin_undo_event(client, &file, &user).await?;
-    prefix.offset = delete_objects(client, &prefix, vec![id_2.clone()]).await?;
-    prefix.offset = undo(client, &prefix.file, &prefix.user).await?;*/
+    prefix.offset = move_objects(client, &prefix, vec![ids[1].clone()], &delta).await?;
+    //prefix.offset = delete_objects(client, &prefix, vec![id_2.clone()]).await?;
     prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
     info!("Undone");
     prefix.offset = redo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;

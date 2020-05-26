@@ -1,6 +1,6 @@
 use crate::*;
 
-async fn get_closest_result(
+fn get_closest_result(
     obj: &DataBox,
     only_match: RefType,
     guess: &Point3f,
@@ -26,7 +26,7 @@ async fn get_closest_result(
     Ok(result)
 }
 
-async fn get_closest_ref(
+fn get_closest_ref(
     obj: &DataBox,
     only_match: RefType,
     guess: &Point3f,
@@ -53,13 +53,13 @@ async fn get_closest_ref(
     Ok(result_ind)
 }
 
-pub async fn snap_to_ref(
+pub fn snap_to_ref(
     obj: &mut DataBox,
     other_obj: &DataBox,
     only_match: RefType,
     guess: &Point3f,
 ) -> Result<(), ObjError> {
-    let res_opt = get_closest_result(other_obj, only_match, guess).await?;
+    let res_opt = get_closest_result(other_obj, only_match, guess)?;
     if let Some((which, calc_res)) = res_opt {
         trace!(
             "Looking at which {:?}, calc_res {:?} from {:?}",
@@ -67,13 +67,22 @@ pub async fn snap_to_ref(
             calc_res,
             other_obj.get_id()
         );
-        let which_opt = get_closest_ref(obj, only_match, guess).await?;
+        let which_opt = get_closest_ref(obj, only_match, guess)?;
         trace!("which_opt {:?}", which_opt);
         match which_opt {
-            Some(index) => obj.set_ref(only_match, index, calc_res, which, &Some(RefResult::Point(*guess))),
+            Some(index) => obj.set_ref(
+                only_match,
+                index,
+                calc_res,
+                which,
+                &Some(RefResult::Point(*guess)),
+            ),
             None => {
                 if !obj.add_ref(only_match, calc_res, which, &Some(RefResult::Point(*guess))) {
-                    return Err(ObjError::Join(format!("Couldn't add ref to {}", obj.get_id())));
+                    return Err(ObjError::Join(format!(
+                        "Couldn't add ref to {}",
+                        obj.get_id()
+                    )));
                 }
             }
         }
@@ -83,14 +92,14 @@ pub async fn snap_to_ref(
     }
 }
 
-pub async fn join_refs(
+pub fn join_refs(
     first: &mut DataBox,
     second: &mut DataBox,
     first_wants: RefType,
     second_wants: RefType,
     guess: &Point3f,
 ) -> Result<(), ObjError> {
-    snap_to_ref(second, first, second_wants, guess).await?;
-    snap_to_ref(first, second, first_wants, guess).await?;
+    snap_to_ref(second, first, second_wants, guess)?;
+    snap_to_ref(first, second, first_wants, guess)?;
     Ok(())
 }

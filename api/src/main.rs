@@ -33,6 +33,10 @@ mod submit {
     tonic::include_proto!("submit");
 }
 
+mod objects {
+    tonic::include_proto!("objects");
+}
+
 fn unavailable<T: std::fmt::Debug>(err: T) -> Status {
     Status::unavailable(format!("Couldn't connect to child service: {:?}", err))
 }
@@ -61,6 +65,7 @@ impl Prefix {
 #[derive(Debug)]
 struct ApiService {
     undo_url: String,
+    obj_url: String,
     ops_url: String,
     submit_url: String,
 }
@@ -239,6 +244,90 @@ impl api_server::Api for ApiService {
             )),
         }
     }
+
+    async fn move_objects(
+        &self,
+        request: Request<MoveObjectsInput>,
+    ) -> Result<Response<MoveObjectsOutput>, Status> {
+        let msg = request.into_inner();
+        let mut obj_client = objects::objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .instrument(info_span!("obj_client::connect"))
+            .await
+            .map_err(unavailable)?;
+        let mut ops_client =
+            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
+                .instrument(info_span!("ops_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let mut submit_client =
+            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
+                .instrument(info_span!("submit_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let prefix = Prefix::new(msg.prefix)?;
+        let mut obj_ids = Vec::new();
+        for obj in msg.obj_ids {
+            obj_ids.push(objects::ObjectAtOffset {
+                offset: prefix.offset,
+                obj_id: obj,
+            });
+        }
+        let resp = obj_client
+            .get_objects(TracedRequest::new(objects::GetObjectsInput {
+                file: prefix.file.clone(),
+                obj_ids,
+            }))
+            .instrument(info_span!("get_objects"))
+            .await;
+        let changes = trace_response(resp)?;
+        let mut objects = Vec::new();
+        for change_opt in changes.objects {
+            match change_opt.change {
+                Some(change) => match change.change_type {
+                    Some(object_state::change_msg::ChangeType::Add(msg))
+                    | Some(object_state::change_msg::ChangeType::Modify(msg)) => objects.push(msg),
+                    _ => warn!("Object {:?} cannot be moved, skipping", change),
+                },
+                None => warn!("Object not found, skipping"),
+            }
+        }
+
+        let resp = ops_client
+            .move_objects(TracedRequest::new(operations::MoveObjectsInput {
+                objects,
+                delta: msg.delta,
+            }))
+            .instrument(info_span!("move_objects"))
+            .await;
+        let objects = trace_response(resp)?;
+        let mut changes = Vec::new();
+        for obj in objects.objects {
+            changes.push(object_state::ChangeMsg {
+                user: prefix.user.clone(),
+                change_type: Some(object_state::change_msg::ChangeType::Modify(obj)),
+                change_source: Some(object_state::change_msg::ChangeSource::UserAction(
+                    object_state::EmptyMsg {},
+                )),
+            });
+        }
+
+        let resp = submit_client
+            .submit_changes(TracedRequest::new(submit::SubmitChangesInput {
+                file: prefix.file,
+                user: prefix.user,
+                offset: prefix.offset,
+                changes,
+            }))
+            .instrument(info_span!("submit_changes"))
+            .await;
+        let mut output = trace_response(resp)?;
+        match output.offsets.pop() {
+            Some(offset) => Ok(Response::new(MoveObjectsOutput { offset })),
+            None => Err(Status::out_of_range(
+                "No offsets received from submit service",
+            )),
+        }
+    }
 }
 
 #[tokio::main]
@@ -246,11 +335,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let run_url = std::env::var("RUN_URL").unwrap().parse().unwrap();
     let jaeger_url = std::env::var("JAEGER_URL").unwrap();
     let undo_url = std::env::var("UNDO_URL").unwrap().parse().unwrap();
+    let obj_url = std::env::var("OBJECTS_URL").unwrap().parse().unwrap();
     let ops_url = std::env::var("OPS_URL").unwrap().parse().unwrap();
     let submit_url = std::env::var("SUBMIT_URL").unwrap().parse().unwrap();
     trace_lib::init_tracer(&jaeger_url, "api")?;
     let svc = api_server::ApiServer::new(ApiService {
         undo_url,
+        obj_url,
         ops_url,
         submit_url,
     });

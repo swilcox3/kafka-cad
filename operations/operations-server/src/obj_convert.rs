@@ -24,6 +24,14 @@ pub fn to_point_3f(msg: &Option<Point3Msg>) -> Result<Point3f, tonic::Status> {
     }
 }
 
+pub fn to_vector_3f(msg: &Option<Vector3Msg>) -> Result<Vector3f, tonic::Status> {
+    if let Some(vec_msg) = msg {
+        Ok(Vector3f::new(vec_msg.x, vec_msg.y, vec_msg.z))
+    } else {
+        Err(tonic::Status::invalid_argument("No vector passed in"))
+    }
+}
+
 pub fn to_door(
     first_pt: &Option<Point3Msg>,
     second_pt: &Option<Point3Msg>,
@@ -65,6 +73,14 @@ pub fn get_view_type(view_msg: &str) -> Result<ViewType, tonic::Status> {
 pub fn from_object_msg(msg: &ObjectMsg) -> Result<DataBox, ObjError> {
     let obj: DataBox = bincode::deserialize(&msg.obj_data)?;
     Ok(obj)
+}
+
+pub fn from_obj_msgs(msgs: &Vec<ObjectMsg>) -> Result<Vec<DataBox>, tonic::Status> {
+    let mut results = Vec::new();
+    for msg in msgs {
+        results.push(from_object_msg(msg).map_err(to_status)?);
+    }
+    Ok(results)
 }
 
 pub fn from_ref_msgs(msgs: &Vec<ReferenceMsg>) -> Result<Vec<Reference>, tonic::Status> {
@@ -141,6 +157,14 @@ pub fn to_object_msg(obj: &DataBox) -> Result<ObjectMsg, ObjError> {
         }),
         obj_data: bincode::serialize(obj)?,
     })
+}
+
+pub fn to_object_msgs(objs: &Vec<DataBox>) -> Result<Vec<ObjectMsg>, tonic::Status> {
+    let mut results = Vec::new();
+    for obj in objs {
+        results.push(to_object_msg(obj).map_err(to_status)?);
+    }
+    Ok(results)
 }
 
 pub fn get_map_from_change_msgs(

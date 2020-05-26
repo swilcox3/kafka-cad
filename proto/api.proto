@@ -50,10 +50,21 @@ message CreateWallsOutput {
     int64 offset = 2;
 }
 
+message MoveObjectsInput {
+    OpPrefixMsg prefix = 1;
+    repeated string obj_ids = 2;
+    geom.Vector3Msg delta = 3;
+}
+
+message MoveObjectsOutput {
+    int64 offset = 1;
+}
+
 service Api 
 {
     rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
     rpc UndoLatest(UndoLatestInput) returns (UndoLatestOutput);
     rpc RedoLatest(RedoLatestInput) returns (RedoLatestOutput);
     rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
+    rpc MoveObjects(MoveObjectsInput) returns (MoveObjectsOutput);
 }

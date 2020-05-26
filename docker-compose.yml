@@ -185,6 +185,7 @@ services:
         - RUN_URL=0.0.0.0:6000
         - JAEGER_URL=jaeger:6831
         - UNDO_URL=http://undo:6000
+        - OBJECTS_URL=http://objects:6000
         - OPS_URL=http://operations:6000
         - SUBMIT_URL=http://submit:6000
         - RUST_LOG=api,trace_lib

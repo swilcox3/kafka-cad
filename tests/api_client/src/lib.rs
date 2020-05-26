@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use tonic::transport::Channel;
 use tonic::Request;
 
@@ -57,12 +57,12 @@ pub async fn redo_latest(
     Ok(output.offset)
 }
 
-/*pub async fn move_objects(
+pub async fn move_objects(
     client: &mut ApiClient,
     prefix: &OpPrefixMsg,
     obj_ids: Vec<String>,
     delta: &Vector3Msg,
-) -> Result<u64> {
+) -> Result<i64> {
     let input = MoveObjectsInput {
         prefix: Some(prefix.clone()),
         obj_ids,
@@ -70,8 +70,8 @@ pub async fn redo_latest(
     };
 
     let output = client.move_objects(Request::new(input)).await?.into_inner();
-    Ok(output.change)
-}*/
+    Ok(output.offset)
+}
 
 /*pub async fn delete_objects(
     client: &mut ApiClient,

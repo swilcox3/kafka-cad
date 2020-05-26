@@ -1,20 +1,19 @@
 use crate::*;
 
-pub async fn move_objects(objs: &mut Vec<DataBox>, delta: &Vector3f) -> Result<(), ObjError> {
+pub fn move_objects(objs: &mut Vec<DataBox>, delta: &Vector3f) {
     for obj in objs {
         match obj.as_position_mut() {
             Some(pos) => {
                 pos.move_obj(delta);
             }
             None => {
-                error!("Object {} lacks Position trait, skipping", obj.get_id());
+                warn!("Object {} lacks Position trait, skipping", obj.get_id());
             }
         }
     }
-    Ok(())
 }
 
-pub async fn add_objs_to_visibility_group(
+pub fn add_objs_to_visibility_group(
     group: &mut DataBox,
     objs: &Vec<DataBox>,
 ) -> Result<(), ObjError> {
@@ -38,7 +37,7 @@ pub async fn add_objs_to_visibility_group(
     Ok(())
 }
 
-pub async fn remove_objs_from_visibility_group(
+pub fn remove_objs_from_visibility_group(
     group: &mut DataBox,
     objs: &Vec<ObjID>,
 ) -> Result<(), ObjError> {
