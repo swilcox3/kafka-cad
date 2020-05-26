@@ -8,4 +8,6 @@
 /ui/src/proto
 redis-data
 zk-single-kafka-single
+cadvisor
+
 

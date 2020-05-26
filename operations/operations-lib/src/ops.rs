@@ -1,23 +1,17 @@
 use crate::*;
 
-pub async fn move_objects(
-    mut objs: Vec<DataBox>,
-    delta: &Vector3f,
-) -> Result<Vec<DataBox>, ObjError> {
-    for obj in &mut objs {
+pub async fn move_objects(objs: &mut Vec<DataBox>, delta: &Vector3f) -> Result<(), ObjError> {
+    for obj in objs {
         match obj.as_position_mut() {
             Some(pos) => {
                 pos.move_obj(delta);
             }
             None => {
-                return Err(ObjError::ObjLacksTrait(
-                    obj.get_id().clone(),
-                    String::from("Position"),
-                ))
+                error!("Object {} lacks Position trait, skipping", obj.get_id());
             }
         }
     }
-    Ok(objs)
+    Ok(())
 }
 
 pub async fn add_objs_to_visibility_group(
@@ -79,4 +73,3 @@ pub async fn get_obj_update_info(
     };
     Ok((output, views_opt))
 }
-

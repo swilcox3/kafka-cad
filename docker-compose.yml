@@ -42,6 +42,15 @@ services:
     ports:
       - "6831/udp"
       - "16686:16686"
+  cadvisor:
+    image: google/cadvisor:latest
+    container_name: cadvisor
+    ports:
+    - 22001:8080
+    volumes:
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
   redis-objects:
     image: "redis:alpine"
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data

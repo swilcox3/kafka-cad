@@ -42,6 +42,8 @@ The general control flow goes like this:
 2. Go to the root directory and run `docker-compose up -d --build`.  It'll take a while the first time, especially for the geometry kernel.
 3. Run python scripts in the tests directory.  The UI is currently just a viewer and will pop up in your browser automatically.
 
+Distributed tracing (Jaeger) is available at localhost:16686 and performance monitoring (cAdvisor) is available at localhost:22001.  Local performance is not indicative of how the product will run at scale because all components are sharing the same resources, and because each service only has one instance.
+
 
 
 
