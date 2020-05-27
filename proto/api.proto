@@ -71,6 +71,15 @@ message JoinObjectsAtPointOutput {
     int64 offset = 1;
 }
 
+message DeleteObjectsInput {
+    OpPrefixMsg prefix = 1;
+    repeated string obj_ids = 2;
+}
+
+message DeleteObjectsOutput {
+    int64 offset = 1;
+}
+
 service Api 
 {
     rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
@@ -79,4 +88,5 @@ service Api
     rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
     rpc MoveObjects(MoveObjectsInput) returns (MoveObjectsOutput);
     rpc JoinObjectsAtPoint(JoinObjectsAtPointInput) returns (JoinObjectsAtPointOutput);
+    rpc DeleteObjects(DeleteObjectsInput) returns (DeleteObjectsOutput);
 }

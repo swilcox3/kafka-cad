@@ -73,11 +73,11 @@ pub async fn move_objects(
     Ok(output.offset)
 }
 
-/*pub async fn delete_objects(
+pub async fn delete_objects(
     client: &mut ApiClient,
     prefix: &OpPrefixMsg,
     ids: Vec<String>,
-) -> Result<u64> {
+) -> Result<i64> {
     let input = DeleteObjectsInput {
         prefix: Some(prefix.clone()),
         obj_ids: ids,
@@ -87,8 +87,8 @@ pub async fn move_objects(
         .delete_objects(Request::new(input))
         .await?
         .into_inner();
-    Ok(output.change)
-}*/
+    Ok(output.offset)
+}
 
 pub async fn join_objs_at_pt(
     client: &mut ApiClient,

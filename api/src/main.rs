@@ -356,6 +356,34 @@ impl api_server::Api for ApiService {
         .await?;
         Ok(Response::new(JoinObjectsAtPointOutput { offset }))
     }
+
+    #[instrument]
+    async fn delete_objects(
+        &self,
+        request: Request<DeleteObjectsInput>,
+    ) -> Result<Response<DeleteObjectsOutput>, Status> {
+        let msg = request.into_inner();
+        let mut submit_client =
+            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
+                .instrument(info_span!("submit_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let prefix = Prefix::new(msg.prefix)?;
+
+        let mut changes = Vec::new();
+        for obj_id in msg.obj_ids {
+            changes.push(common::delete(&prefix.user, obj_id));
+        }
+        let offset = common::submit_changes(
+            &mut submit_client,
+            prefix.file,
+            prefix.user,
+            prefix.offset,
+            changes,
+        )
+        .await?;
+        Ok(Response::new(DeleteObjectsOutput { offset }))
+    }
 }
 
 #[tokio::main]
