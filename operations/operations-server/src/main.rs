@@ -70,6 +70,52 @@ impl operations_server::Operations for OperationsService {
     }
 
     #[instrument]
+    async fn join_object_to_other(
+        &self,
+        request: Request<JoinObjectToOtherInput>,
+    ) -> Result<Response<JoinObjectToOtherOutput>, Status> {
+        let msg = request.get_ref();
+        propagate_trace(request.metadata());
+        let mut obj = from_obj_msg_opt(&msg.to_join)?;
+        let other_obj = from_obj_msg_opt(&msg.join_to)?;
+        let ref_type = from_ref_type_msg(msg.looking_for)?;
+        let guess = to_point_3f(&msg.guess)?;
+        operations::snap_to_ref(&mut obj, &other_obj, ref_type, &guess).map_err(to_status)?;
+        let obj_msg = to_object_msg(&obj).map_err(to_status)?;
+        Ok(Response::new(JoinObjectToOtherOutput {
+            joined: Some(obj_msg),
+        }))
+    }
+
+    #[instrument]
+    async fn join_objects(
+        &self,
+        request: Request<JoinObjectsInput>,
+    ) -> Result<Response<JoinObjectsOutput>, Status> {
+        let msg = request.get_ref();
+        propagate_trace(request.metadata());
+        let mut first_obj = from_obj_msg_opt(&msg.first_obj)?;
+        let mut second_obj = from_obj_msg_opt(&msg.second_obj)?;
+        let first_wants = from_ref_type_msg(msg.first_wants)?;
+        let second_wants = from_ref_type_msg(msg.second_wants)?;
+        let guess = to_point_3f(&msg.guess)?;
+        operations::join_refs(
+            &mut first_obj,
+            &mut second_obj,
+            first_wants,
+            second_wants,
+            &guess,
+        )
+        .map_err(to_status)?;
+        let first_msg = to_object_msg(&first_obj).map_err(to_status)?;
+        let second_msg = to_object_msg(&second_obj).map_err(to_status)?;
+        Ok(Response::new(JoinObjectsOutput {
+            first_obj: Some(first_msg),
+            second_obj: Some(second_msg),
+        }))
+    }
+
+    #[instrument]
     async fn update_objects(
         &self,
         request: Request<UpdateObjectsInput>,

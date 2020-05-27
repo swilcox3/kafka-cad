@@ -64,10 +64,10 @@ async fn create_floor(
     ];
     let (offset, ids) = create_walls(client, &prefix, walls).await?;
     prefix.offset = offset;
-    /*prefix.offset = join_objs_at_pt(client, &prefix, &id_1, &id_2, &pt_2).await?;
-    prefix.offset = join_objs_at_pt(client, &prefix, &id_2, &id_3, &pt_3).await?;
-    prefix.offset = join_objs_at_pt(client, &prefix, &id_3, &id_4, &pt_4).await?;
-    prefix.offset = join_objs_at_pt(client, &prefix, &id_4, &id_1, &pt_1).await?;*/
+    prefix.offset = join_objs_at_pt(client, &prefix, &ids[0], &ids[1], &pt_2).await?;
+    prefix.offset = join_objs_at_pt(client, &prefix, &ids[1], &ids[2], &pt_3).await?;
+    prefix.offset = join_objs_at_pt(client, &prefix, &ids[2], &ids[3], &pt_4).await?;
+    prefix.offset = join_objs_at_pt(client, &prefix, &ids[3], &ids[0], &pt_1).await?;
 
     begin_undo_event(client, &file, &user).await?;
     let delta = Vector3Msg {

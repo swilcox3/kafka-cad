@@ -90,6 +90,27 @@ pub async fn move_objects(
     Ok(output.change)
 }*/
 
+pub async fn join_objs_at_pt(
+    client: &mut ApiClient,
+    prefix: &OpPrefixMsg,
+    id_1: &String,
+    id_2: &String,
+    guess: &Point3Msg,
+) -> Result<i64> {
+    let input = JoinObjectsAtPointInput {
+        prefix: Some(prefix.clone()),
+        first_id: id_1.clone(),
+        second_id: id_2.clone(),
+        guess: Some(guess.clone()),
+    };
+
+    let output = client
+        .join_objects_at_point(Request::new(input))
+        .await?
+        .into_inner();
+    Ok(output.offset)
+}
+
 pub async fn create_walls(
     client: &mut ApiClient,
     prefix: &OpPrefixMsg,

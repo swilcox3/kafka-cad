@@ -70,9 +70,33 @@ pub fn get_view_type(view_msg: &str) -> Result<ViewType, tonic::Status> {
     }
 }
 
+pub fn from_ref_type_msg(ref_type: i32) -> Result<RefType, tonic::Status> {
+    match ref_id_msg::RefType::from_i32(ref_type) {
+        Some(ref_id_msg::RefType::Drawable) => Ok(RefType::Drawable),
+        Some(ref_id_msg::RefType::Existence) => Ok(RefType::Existence),
+        Some(ref_id_msg::RefType::AxisAlignedBbox) => Ok(RefType::AxisAlignedBoundBox),
+        Some(ref_id_msg::RefType::ProfilePoint) => Ok(RefType::ProfilePoint),
+        Some(ref_id_msg::RefType::ProfileLine) => Ok(RefType::ProfileLine),
+        Some(ref_id_msg::RefType::ProfilePlane) => Ok(RefType::ProfilePlane),
+        Some(ref_id_msg::RefType::Property) => Ok(RefType::Property),
+        Some(ref_id_msg::RefType::Empty) => Ok(RefType::Empty),
+        None => Err(tonic::Status::invalid_argument("No ref type set")),
+    }
+}
+
 pub fn from_object_msg(msg: &ObjectMsg) -> Result<DataBox, ObjError> {
     let obj: DataBox = bincode::deserialize(&msg.obj_data)?;
     Ok(obj)
+}
+
+pub fn from_obj_msg_opt(msg_opt: &Option<ObjectMsg>) -> Result<DataBox, tonic::Status> {
+    match msg_opt {
+        Some(msg) => {
+            let obj = from_object_msg(msg).map_err(to_status)?;
+            Ok(obj)
+        }
+        None => Err(tonic::Status::invalid_argument("Object msg not passed in")),
+    }
 }
 
 pub fn from_obj_msgs(msgs: &Vec<ObjectMsg>) -> Result<Vec<DataBox>, tonic::Status> {
@@ -98,17 +122,7 @@ fn from_ref_id_msg(msg: &Option<RefIdMsg>) -> Result<RefID, tonic::Status> {
     match msg {
         Some(msg) => Ok(RefID {
             id: to_obj_id(&msg.id)?,
-            ref_type: match ref_id_msg::RefType::from_i32(msg.ref_type) {
-                Some(ref_id_msg::RefType::Drawable) => RefType::Drawable,
-                Some(ref_id_msg::RefType::Existence) => RefType::Existence,
-                Some(ref_id_msg::RefType::AxisAlignedBbox) => RefType::AxisAlignedBoundBox,
-                Some(ref_id_msg::RefType::ProfilePoint) => RefType::ProfilePoint,
-                Some(ref_id_msg::RefType::ProfileLine) => RefType::ProfileLine,
-                Some(ref_id_msg::RefType::ProfilePlane) => RefType::ProfilePlane,
-                Some(ref_id_msg::RefType::Property) => RefType::Property,
-                Some(ref_id_msg::RefType::Empty) => RefType::Empty,
-                None => return Err(tonic::Status::invalid_argument("No ref type set")),
-            },
+            ref_type: from_ref_type_msg(msg.ref_type)?,
             index: msg.index as ResultInd,
         }),
         None => Err(tonic::Status::invalid_argument("No ref id passed in")),

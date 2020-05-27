@@ -60,6 +60,17 @@ message MoveObjectsOutput {
     int64 offset = 1;
 }
 
+message JoinObjectsAtPointInput {
+    OpPrefixMsg prefix = 1;
+    string first_id = 2;
+    string second_id = 3;
+    geom.Point3Msg guess = 4;
+}
+
+message JoinObjectsAtPointOutput {
+    int64 offset = 1;
+}
+
 service Api 
 {
     rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
@@ -67,4 +78,5 @@ service Api
     rpc RedoLatest(RedoLatestInput) returns (RedoLatestOutput);
     rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
     rpc MoveObjects(MoveObjectsInput) returns (MoveObjectsOutput);
+    rpc JoinObjectsAtPoint(JoinObjectsAtPointInput) returns (JoinObjectsAtPointOutput);
 }

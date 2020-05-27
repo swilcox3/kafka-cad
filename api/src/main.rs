@@ -4,6 +4,8 @@ use trace_lib::{trace_response, TracedRequest};
 use tracing::*;
 use tracing_futures::Instrument;
 
+mod common;
+
 mod api {
     tonic::include_proto!("api");
 }
@@ -215,13 +217,7 @@ impl api_server::Api for ApiService {
         let mut ids = Vec::new();
         for obj in objects.walls.into_iter() {
             ids.push(obj.id.clone());
-            changes.push(object_state::ChangeMsg {
-                user: prefix.user.clone(),
-                change_type: Some(object_state::change_msg::ChangeType::Add(obj)),
-                change_source: Some(object_state::change_msg::ChangeSource::UserAction(
-                    object_state::EmptyMsg {},
-                )),
-            });
+            changes.push(common::add(&prefix.user, obj));
         }
 
         let resp = submit_client
@@ -245,6 +241,7 @@ impl api_server::Api for ApiService {
         }
     }
 
+    #[instrument]
     async fn move_objects(
         &self,
         request: Request<MoveObjectsInput>,
@@ -265,32 +262,15 @@ impl api_server::Api for ApiService {
                 .await
                 .map_err(unavailable)?;
         let prefix = Prefix::new(msg.prefix)?;
-        let mut obj_ids = Vec::new();
-        for obj in msg.obj_ids {
-            obj_ids.push(objects::ObjectAtOffset {
-                offset: prefix.offset,
-                obj_id: obj,
-            });
-        }
-        let resp = obj_client
-            .get_objects(TracedRequest::new(objects::GetObjectsInput {
-                file: prefix.file.clone(),
-                obj_ids,
-            }))
-            .instrument(info_span!("get_objects"))
-            .await;
-        let changes = trace_response(resp)?;
-        let mut objects = Vec::new();
-        for change_opt in changes.objects {
-            match change_opt.change {
-                Some(change) => match change.change_type {
-                    Some(object_state::change_msg::ChangeType::Add(msg))
-                    | Some(object_state::change_msg::ChangeType::Modify(msg)) => objects.push(msg),
-                    _ => warn!("Object {:?} cannot be moved, skipping", change),
-                },
-                None => warn!("Object not found, skipping"),
-            }
-        }
+
+        let objects = common::get_objects(
+            &mut obj_client,
+            &prefix.file,
+            msg.obj_ids,
+            prefix.offset,
+            false,
+        )
+        .await?;
 
         let resp = ops_client
             .move_objects(TracedRequest::new(operations::MoveObjectsInput {
@@ -302,31 +282,79 @@ impl api_server::Api for ApiService {
         let objects = trace_response(resp)?;
         let mut changes = Vec::new();
         for obj in objects.objects {
-            changes.push(object_state::ChangeMsg {
-                user: prefix.user.clone(),
-                change_type: Some(object_state::change_msg::ChangeType::Modify(obj)),
-                change_source: Some(object_state::change_msg::ChangeSource::UserAction(
-                    object_state::EmptyMsg {},
-                )),
-            });
+            changes.push(common::modify(&prefix.user, obj));
         }
+        let offset = common::submit_changes(
+            &mut submit_client,
+            prefix.file,
+            prefix.user,
+            prefix.offset,
+            changes,
+        )
+        .await?;
+        Ok(Response::new(MoveObjectsOutput { offset }))
+    }
 
-        let resp = submit_client
-            .submit_changes(TracedRequest::new(submit::SubmitChangesInput {
-                file: prefix.file,
-                user: prefix.user,
-                offset: prefix.offset,
-                changes,
+    async fn join_objects_at_point(
+        &self,
+        request: Request<JoinObjectsAtPointInput>,
+    ) -> Result<Response<JoinObjectsAtPointOutput>, Status> {
+        let msg = request.into_inner();
+        let mut obj_client = objects::objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .instrument(info_span!("obj_client::connect"))
+            .await
+            .map_err(unavailable)?;
+        let mut ops_client =
+            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
+                .instrument(info_span!("ops_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let mut submit_client =
+            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
+                .instrument(info_span!("submit_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let prefix = Prefix::new(msg.prefix)?;
+
+        let mut objects = common::get_objects(
+            &mut obj_client,
+            &prefix.file,
+            vec![msg.first_id, msg.second_id],
+            prefix.offset,
+            true,
+        )
+        .await?;
+
+        let second_opt = objects.pop();
+        let first_opt = objects.pop();
+
+        let resp = ops_client
+            .join_objects(TracedRequest::new(operations::JoinObjectsInput {
+                first_obj: first_opt,
+                second_obj: second_opt,
+                first_wants: object_state::ref_id_msg::RefType::ProfilePoint as i32,
+                second_wants: object_state::ref_id_msg::RefType::ProfilePoint as i32,
+                guess: msg.guess,
             }))
-            .instrument(info_span!("submit_changes"))
+            .instrument(info_span!("join_objects"))
             .await;
-        let mut output = trace_response(resp)?;
-        match output.offsets.pop() {
-            Some(offset) => Ok(Response::new(MoveObjectsOutput { offset })),
-            None => Err(Status::out_of_range(
-                "No offsets received from submit service",
-            )),
+        let output = trace_response(resp)?;
+        let mut changes = Vec::new();
+        if let Some(first_obj) = output.first_obj {
+            changes.push(common::modify(&prefix.user, first_obj));
         }
+        if let Some(second_obj) = output.second_obj {
+            changes.push(common::modify(&prefix.user, second_obj));
+        }
+        let offset = common::submit_changes(
+            &mut submit_client,
+            prefix.file,
+            prefix.user,
+            prefix.offset,
+            changes,
+        )
+        .await?;
+        Ok(Response::new(JoinObjectsAtPointOutput { offset }))
     }
 }
 

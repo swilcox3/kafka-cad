@@ -30,6 +30,38 @@ message MoveObjectsOutput {
     repeated object_state.ObjectMsg objects = 2;
 }
 
+//A one-way join, where to_join gets a reference to information on join_to.  join_to is unchanged.
+message JoinObjectToOtherInput {
+    object_state.ObjectMsg to_join = 1;
+    object_state.ObjectMsg join_to = 2;
+    object_state.RefIDMsg.RefType looking_for = 3;
+    //TODO: Right now this is the point where the user clicked when specifying the join.  
+    //This needs to be more general to support more join types.
+    geom.Point3Msg guess = 4;
+}
+
+message JoinObjectToOtherOutput {
+    object_state.ObjectMsg joined = 1;
+}
+
+//A two-way join, where two objects get references to each other.
+message JoinObjectsInput {
+    object_state.ObjectMsg first_obj = 1;
+    object_state.ObjectMsg second_obj = 2;
+    //The kind of information the first object is looking to join to
+    object_state.RefIDMsg.RefType first_wants = 3;
+    //The kind of information the second object is looking to join to
+    object_state.RefIDMsg.RefType second_wants = 4;
+    //TODO: Right now this is the point where the user clicked when specifying the join.  
+    //This needs to be more general to support more join types.
+    geom.Point3Msg guess = 5;
+}
+
+message JoinObjectsOutput {
+    object_state.ObjectMsg first_obj = 1;
+    object_state.ObjectMsg second_obj = 2;
+}
+
 message UpdateObjectsInput {
     //This is a traversal of the dependency graph, it tells us the order in which to update
     repeated object_state.ReferenceMsg obj_refs = 1;
@@ -52,6 +84,8 @@ message ClientRepresentationOutput {
 service Operations {
     rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
     rpc MoveObjects(MoveObjectsInput) returns (MoveObjectsOutput);
+    rpc JoinObjectToOther(JoinObjectToOtherInput) returns (JoinObjectToOtherOutput);
+    rpc JoinObjects(JoinObjectsInput) returns (JoinObjectsOutput);
     rpc UpdateObjects(UpdateObjectsInput) returns (UpdateObjectsOutput);
     rpc ClientRepresentation(ClientRepresentationInput) returns (ClientRepresentationOutput);
 }
