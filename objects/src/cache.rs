@@ -1,6 +1,8 @@
 //! The object cache for a file maps objIDs to a list of the last X number of changes to that object.
 //! X is configurable.  
 
+use async_stream::try_stream;
+use futures::stream::Stream;
 use prost::Message;
 use redis::aio::MultiplexedConnection;
 use redis::AsyncCommands;
@@ -64,6 +66,10 @@ fn file_offset(file: &str) -> String {
     format!("{}:offset", file)
 }
 
+fn latest_obj_list(file: &str) -> String {
+    format!("{}:obj_list", file)
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct ObjEntry {
     offset: i64,
@@ -101,6 +107,37 @@ async fn store_file_offset(
     trace!("Setting file {} to offset {}", file, offset);
     conn.set(file_offset, offset).await?;
     Ok(())
+}
+
+async fn update_latest_obj_list(
+    conn: &mut MultiplexedConnection,
+    file: &str,
+    obj: &ChangeMsg,
+) -> Result<(), ObjError> {
+    let latest_list = latest_obj_list(file);
+    match &obj.change_type {
+        Some(change_msg::ChangeType::Add(object)) => {
+            conn.sadd(latest_list, &object.id).await?;
+        }
+        Some(change_msg::ChangeType::Delete(msg)) => {
+            conn.srem(latest_list, &msg.id).await?;
+        }
+        Some(change_msg::ChangeType::Modify(..)) | None => (),
+    }
+    Ok(())
+}
+
+pub fn get_latest_obj_list(
+    mut conn: MultiplexedConnection,
+    file: String,
+) -> impl Stream<Item = Result<String, ObjError>> {
+    try_stream! {
+        let latest_list = latest_obj_list(&file);
+        let mut ids: Vec<String> = conn.smembers(latest_list).await?;
+        for id in ids {
+            yield id;
+        }
+    }
 }
 
 async fn get_object(
@@ -144,7 +181,7 @@ pub async fn update_object_cache(
 ) -> Result<(), ObjError> {
     let object = object_state::ChangeMsg::decode(input)?;
     info!("Updating object cache: {:?}", object);
-    let id = match object.change_type {
+    let id = match &object.change_type {
         Some(change_msg::ChangeType::Add(object))
         | Some(change_msg::ChangeType::Modify(object)) => object.id.clone(),
         Some(change_msg::ChangeType::Delete(msg)) => msg.id.clone(),
@@ -156,6 +193,7 @@ pub async fn update_object_cache(
     };
     store_object_change(conn, file, offset, &id, input).await?;
     store_file_offset(conn, file, offset).await?;
+    update_latest_obj_list(conn, file, &object).await?;
     Ok(())
 }
 
@@ -199,6 +237,7 @@ pub async fn get_latest_offset(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::StreamExt;
     use uuid::Uuid;
 
     pub async fn test_get_conn() -> MultiplexedConnection {
@@ -292,5 +331,69 @@ mod tests {
         assert!(get_object(&mut conn, &file, offset_1 - 1, &id)
             .await
             .is_err());
+    }
+
+    #[tokio_macros::test]
+    async fn test_get_latest_list() {
+        let mut conn = test_get_conn().await;
+        let id_1 = Uuid::new_v4().to_string();
+        let id_2 = Uuid::new_v4().to_string();
+        let id_3 = Uuid::new_v4().to_string();
+        let file = Uuid::new_v4().to_string();
+        let user = Uuid::new_v4().to_string();
+        let change_1 = ChangeMsg {
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                id: id_1.clone(),
+                dependencies: None,
+                obj_data: vec![],
+            })),
+            change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
+        };
+        let mut change_1_bytes = Vec::new();
+        change_1.encode(&mut change_1_bytes).unwrap();
+        let change_2 = ChangeMsg {
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                id: id_2.clone(),
+                dependencies: None,
+                obj_data: String::from("modified").into_bytes(),
+            })),
+            change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
+        };
+        let mut change_2_bytes = Vec::new();
+        change_2.encode(&mut change_2_bytes).unwrap();
+        let change_3 = ChangeMsg {
+            user: user.clone(),
+            change_type: Some(change_msg::ChangeType::Add(ObjectMsg {
+                id: id_3.clone(),
+                dependencies: None,
+                obj_data: String::from("modified").into_bytes(),
+            })),
+            change_source: Some(change_msg::ChangeSource::UserAction(EmptyMsg {})),
+        };
+        let mut change_3_bytes = Vec::new();
+        change_3.encode(&mut change_3_bytes).unwrap();
+        update_object_cache(&mut conn, &file, 1, &change_1_bytes)
+            .await
+            .unwrap();
+        update_object_cache(&mut conn, &file, 2, &change_2_bytes)
+            .await
+            .unwrap();
+        update_object_cache(&mut conn, &file, 3, &change_3_bytes)
+            .await
+            .unwrap();
+
+        let mut answer_set = std::collections::HashSet::new();
+        answer_set.insert(id_1.clone());
+        answer_set.insert(id_2.clone());
+        answer_set.insert(id_3.clone());
+        let stream = get_latest_obj_list(conn.clone(), file.clone());
+        futures::pin_mut!(stream);
+        while let Some(msg_res) = stream.next().await {
+            let msg_id = msg_res.unwrap();
+            assert!(answer_set.remove(&msg_id));
+        }
+        assert_eq!(answer_set.len(), 0);
     }
 }

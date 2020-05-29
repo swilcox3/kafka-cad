@@ -1581,6 +1581,7 @@ checksum = "9cbca9424c482ee628fa549d9c812e2cd22f1180b9222c9200fdfa6eb31aecb2"
 name = "objects"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
  "bincode",
  "env_logger",
  "futures",
@@ -2186,6 +2187,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a83fa3702a688b9359eccba92d153ac33fd2e8462f9e0e3fdf155239ea7792e"
 dependencies = [
  "winapi 0.3.8",
+]
+
+[[package]]
+name = "rep_cache"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "futures",
+ "log",
+ "prost",
+ "rdkafka",
+ "redis",
+ "thiserror",
+ "tokio",
+ "tokio-macros",
+ "tonic",
+ "tonic-build",
+ "trace_lib",
+ "tracing",
+ "tracing-futures",
+ "uuid",
 ]
 
 [[package]]

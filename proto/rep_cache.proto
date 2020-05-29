@@ -1,0 +1,18 @@
+syntax = "proto3";
+import "representation.proto";
+
+package rep_cache;
+
+message GetObjectRepresentationsInput {
+    string file = 1;
+    repeated string obj_ids = 2;
+}
+
+message GetObjectRepresentationsOutput {
+    repeated representation.UpdateChangeMsg reps = 1;
+}
+
+service RepCache {
+    rpc GetObjectRepresentations(GetObjectRepresentationsInput) returns (GetObjectRepresentationsOutput);
+}
+

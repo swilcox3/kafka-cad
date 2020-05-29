@@ -203,5 +203,27 @@ services:
           target: /dist
     ports:
         - "80:80"
+  redis-reps:
+    image: "redis:alpine"
+    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
+    restart: always
+    ports: 
+      - "6379"
+  rep-cache:
+    build: 
+        context: ./
+        dockerfile: rep_cache/Cargo.toml
+    depends_on: 
+        - redis-reps
+        - kafka1
+        - jaeger
+    environment: 
+        - RUN_URL=0.0.0.0:6000
+        - JAEGER_URL=jaeger:6831
+        - REDIS_URL=redis://redis-reps:6379
+        - BROKER=kafka1
+        - GROUP=rep-group
+        - TOPIC=ClientRepresentation
+        - RUST_LOG=rep_cache,trace_lib
       
   

@@ -31,8 +31,17 @@ message GetLatestOffsetOutput {
     int64 offset = 1;
 }
 
+message GetLatestObjectListInput {
+    string file = 1;
+}
+
+message GetLatestObjectListOutput {
+    string obj_id = 1;
+}
+
 
 service Objects {
     rpc GetObjects(GetObjectsInput) returns (GetObjectsOutput);
     rpc GetLatestOffset(GetLatestOffsetInput) returns (GetLatestOffsetOutput);
+    rpc GetLatestObjectList(GetLatestObjectListInput) returns (stream GetLatestObjectListOutput);
 }

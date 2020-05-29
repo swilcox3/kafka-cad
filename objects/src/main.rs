@@ -1,3 +1,5 @@
+use futures::StreamExt;
+use tokio::sync::mpsc;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 use trace_lib::*;
@@ -23,12 +25,12 @@ async fn get_redis_conn(url: &str) -> Result<redis::aio::MultiplexedConnection, 
 }
 
 #[derive(Debug)]
-struct ObjectService {
+struct RepCacheService {
     redis_url: String,
 }
 
 #[tonic::async_trait]
-impl objects_server::Objects for ObjectService {
+impl objects_server::Objects for RepCacheService {
     #[instrument]
     async fn get_objects(
         &self,
@@ -58,6 +60,35 @@ impl objects_server::Objects for ObjectService {
             .map_err(to_status)?;
         Ok(Response::new(GetLatestOffsetOutput { offset }))
     }
+
+    type GetLatestObjectListStream = mpsc::Receiver<Result<GetLatestObjectListOutput, Status>>;
+
+    async fn get_latest_object_list(
+        &self,
+        request: Request<GetLatestObjectListInput>,
+    ) -> Result<Response<Self::GetLatestObjectListStream>, Status> {
+        propagate_trace(request.metadata());
+        let msg = request.into_inner();
+        let redis_conn = get_redis_conn(&self.redis_url).await?;
+        let (mut tx, rx) = mpsc::channel(100);
+        tokio::spawn(async move {
+            let stream = cache::get_latest_obj_list(redis_conn, msg.file);
+            futures::pin_mut!(stream);
+            while let Some(msg_res) = stream.next().await {
+                match msg_res {
+                    Ok(obj_id) => {
+                        let msg = GetLatestObjectListOutput { obj_id };
+                        tx.send(Ok(msg)).await.unwrap();
+                    }
+                    Err(e) => {
+                        error!("{:?}", e);
+                        tx.send(Err(to_status(e))).await.unwrap();
+                    }
+                }
+            }
+        });
+        Ok(Response::new(rx))
+    }
 }
 
 #[tokio::main]
@@ -71,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     trace_lib::init_tracer(&jaeger_url, "objects")?;
     tokio::spawn(update_cache(redis_url.clone(), broker, group, topic));
 
-    let svc = objects_server::ObjectsServer::new(ObjectService { redis_url });
+    let svc = objects_server::ObjectsServer::new(RepCacheService { redis_url });
 
     println!("Running on {:?}", run_url);
     Server::builder()

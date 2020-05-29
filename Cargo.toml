@@ -16,4 +16,5 @@ members = [
     "operations/operations-server",
     "ui-server",
     "trace-lib",
+    "rep_cache"
 ]
