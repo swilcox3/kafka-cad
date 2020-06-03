@@ -7,6 +7,11 @@ mod geom {
 }
 pub use geom::*;
 
+mod representation {
+    tonic::include_proto!("representation");
+}
+pub use representation::*;
+
 pub mod api {
     tonic::include_proto!("api");
 }

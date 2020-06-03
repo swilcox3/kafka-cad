@@ -11,6 +11,7 @@ fn main() {
                 "../proto/objects.proto",
                 "../proto/undo.proto",
                 "../proto/representation.proto",
+                "../proto/rep_cache.proto",
                 "../proto/submit.proto",
             ],
             &["../proto"],

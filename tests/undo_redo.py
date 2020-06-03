@@ -36,7 +36,8 @@ if __name__ == '__main__':
     os.chdir("../")
     subprocess.run(["cargo", "build", "--release",
                     "-p", "test_undo_redo"], check=True)
-    webbrowser.open_new_tab("http://127.0.0.1/index.html")
+    webbrowser.open_new_tab(
+        "http://127.0.0.1/index.html?file=00000003-0003-0003-0003-000000000003")
     time.sleep(2)
 
     run(args.num)

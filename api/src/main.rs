@@ -1,3 +1,4 @@
+use futures::StreamExt;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 use trace_lib::{trace_response, TracedRequest};
@@ -13,6 +14,10 @@ use api::*;
 
 mod representation {
     tonic::include_proto!("representation");
+}
+
+mod rep_cache {
+    tonic::include_proto!("rep_cache");
 }
 
 mod geom {
@@ -70,6 +75,7 @@ struct ApiService {
     obj_url: String,
     ops_url: String,
     submit_url: String,
+    rep_cache_url: String,
 }
 
 #[tonic::async_trait]
@@ -180,6 +186,58 @@ impl api_server::Api for ApiService {
                 "No offsets received from submit service",
             )),
         }
+    }
+
+    type OpenFileStream = tokio::sync::mpsc::Receiver<Result<OpenFileOutput, Status>>;
+
+    #[instrument]
+    async fn open_file(
+        &self,
+        request: Request<OpenFileInput>,
+    ) -> Result<Response<Self::OpenFileStream>, Status> {
+        let msg = request.into_inner();
+        let mut rep_cache_client =
+            rep_cache::rep_cache_client::RepCacheClient::connect(self.rep_cache_url.clone())
+                .instrument(info_span!("rep_cache_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let mut obj_client = objects::objects_client::ObjectsClient::connect(self.obj_url.clone())
+            .instrument(info_span!("obj_client::connect"))
+            .await
+            .map_err(unavailable)?;
+        let resp = obj_client
+            .get_latest_object_list(TracedRequest::new(objects::GetLatestObjectListInput {
+                file: msg.file.clone(),
+            }))
+            .instrument(info_span!("get_latest_object_list"))
+            .await;
+        let mut stream = trace_response(resp)?;
+        let (mut tx, rx) = tokio::sync::mpsc::channel(100);
+        tokio::spawn(async move {
+            while let Some(obj_id_res) = stream.next().await {
+                match obj_id_res {
+                    Ok(obj_id) => {
+                        let input = rep_cache::GetObjectRepresentationsInput {
+                            file: msg.file.clone(),
+                            obj_ids: vec![obj_id.obj_id],
+                        };
+                        let resp = rep_cache_client
+                            .get_object_representations(TracedRequest::new(input))
+                            .instrument(info_span!("get_object_representations"))
+                            .await;
+                        if let Ok(mut rep) = trace_response(resp) {
+                            tx.send(Ok(OpenFileOutput {
+                                obj_rep: rep.reps.pop(),
+                            }))
+                            .await
+                            .unwrap();
+                        }
+                    }
+                    Err(e) => error!("{}", e),
+                }
+            }
+        });
+        Ok(Response::new(rx))
     }
 
     #[instrument]
@@ -394,12 +452,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let obj_url = std::env::var("OBJECTS_URL").unwrap().parse().unwrap();
     let ops_url = std::env::var("OPS_URL").unwrap().parse().unwrap();
     let submit_url = std::env::var("SUBMIT_URL").unwrap().parse().unwrap();
+    let rep_cache_url = std::env::var("REP_CACHE_URL").unwrap().parse().unwrap();
     trace_lib::init_tracer(&jaeger_url, "api")?;
     let svc = api_server::ApiServer::new(ApiService {
         undo_url,
         obj_url,
         ops_url,
         submit_url,
+        rep_cache_url,
     });
     println!("Running on {:?}", run_url);
     Server::builder()

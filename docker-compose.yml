@@ -188,6 +188,7 @@ services:
         - OBJECTS_URL=http://objects:6000
         - OPS_URL=http://operations:6000
         - SUBMIT_URL=http://submit:6000
+        - REP_CACHE_URL=http://rep_cache:6000
         - RUST_LOG=api,trace_lib
     ports:
       - "8080:6000"

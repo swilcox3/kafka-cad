@@ -1,5 +1,6 @@
 syntax = "proto3";
 import "geom.proto";
+import "representation.proto";
 
 package api;
 
@@ -25,6 +26,14 @@ message RedoLatestInput {
 
 message RedoLatestOutput {
     int64 offset = 1;
+}
+
+message OpenFileInput {
+    string file = 1;
+}
+
+message OpenFileOutput {
+    representation.UpdateChangeMsg obj_rep = 1;
 }
 
 message OpPrefixMsg {
@@ -85,6 +94,7 @@ service Api
     rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
     rpc UndoLatest(UndoLatestInput) returns (UndoLatestOutput);
     rpc RedoLatest(RedoLatestInput) returns (RedoLatestOutput);
+    rpc OpenFile(OpenFileInput) returns (stream OpenFileOutput);
     rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
     rpc MoveObjects(MoveObjectsInput) returns (MoveObjectsOutput);
     rpc JoinObjectsAtPoint(JoinObjectsAtPointInput) returns (JoinObjectsAtPointOutput);

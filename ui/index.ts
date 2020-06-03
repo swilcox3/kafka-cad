@@ -5,8 +5,9 @@ window.addEventListener('DOMContentLoaded', () => {
   var user = ops.initialize();
   console.log(connection);
   ops.setConnection(connection).then(() => {
-    var file = "00000003-0003-0003-0003-000000000003";
-    console.log("HI!");
+    const urlParams = new URLSearchParams(window.location.search);
+    var file = urlParams.get('file');
+    console.log("Got file: " + file);
     ops.initFile(document.getElementById('renderCanvas') as HTMLCanvasElement, file, user);
   });
 });
