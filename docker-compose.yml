@@ -51,6 +51,14 @@ services:
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+  grpc-proxy:
+    build:
+        context: ./
+        dockerfile: grpc-proxy/Dockerfile
+    depends_on:
+        - api
+    ports:
+        - "8080:8080"
   redis-objects:
     image: "redis:alpine"
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"] #disable persistent data
@@ -146,6 +154,8 @@ services:
         - JAEGER_URL=jaeger:6831
         - GEOM_URL=http://geom-kernel:5000
         - RUST_LOG=operations_server,operations,obj_traits,obj_defs,trace_lib
+    depends_on: 
+        - jaeger
   representations:
     build: 
         context: ./
@@ -188,10 +198,10 @@ services:
         - OBJECTS_URL=http://objects:6000
         - OPS_URL=http://operations:6000
         - SUBMIT_URL=http://submit:6000
-        - REP_CACHE_URL=http://rep_cache:6000
+        - REP_CACHE_URL=http://rep-cache:6000
         - RUST_LOG=api,trace_lib
     ports:
-      - "8080:6000"
+      - "6000"
   ui-server:
     build:
         context: ./

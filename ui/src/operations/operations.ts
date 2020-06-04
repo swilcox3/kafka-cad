@@ -76,10 +76,9 @@ export function subToFile(name: string, user: string) {
 }
 
 export function openFile(file_id: string) {
-    /*console.log("open file " + file_id);
+    console.log("open file " + file_id);
     var fileInput = new api.OpenFileInput();
     fileInput.setFile(file_id);
-    fileInput.setUser(user);
     var stream = client.openFile(fileInput);
     stream.on('status', function (status) {
         console.log(status.code);
@@ -88,12 +87,12 @@ export function openFile(file_id: string) {
     });
     stream.on('data', function (response) {
         console.log(response);
-        handleUpdate(response.getUpdate());
+        handleUpdate(response.getObjRep());
     });
     stream.on('end', function (end) {
         console.log("end");
         // stream end signal
-    });*/
+    });
 }
 
 export function beginUndoEvent(desc: string) {

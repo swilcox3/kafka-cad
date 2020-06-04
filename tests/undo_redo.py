@@ -6,21 +6,22 @@ import shutil
 import os
 import sys
 import webbrowser
+import uuid
 
 
-def runInstance(index):
+def runInstance(index, file):
     start = time.time()
-    args = ["target/release/test_undo_redo", str(index)]
+    args = ["target/release/test_undo_redo", str(index), file]
     subprocess.run(args, check=True, stdout=subprocess.DEVNULL)
     end = time.time()
     print("Process completed in " + str(end - start) + " seconds")
 
 
-def run(num_actors):
+def run(num_actors, file):
     start = time.time()
     args = []
     for i in range(0, num_actors):
-        args.append([i])
+        args.append([i, file])
     with Pool(num_actors) as p:
         p.starmap(runInstance, args)
     end = time.time()
@@ -36,8 +37,8 @@ if __name__ == '__main__':
     os.chdir("../")
     subprocess.run(["cargo", "build", "--release",
                     "-p", "test_undo_redo"], check=True)
+    file = str(uuid.uuid4())
     webbrowser.open_new_tab(
-        "http://127.0.0.1/index.html?file=00000003-0003-0003-0003-000000000003")
-    time.sleep(2)
+        "http://127.0.0.1/index.html?file=" + file)
 
-    run(args.num)
+    run(args.num, file)

@@ -90,10 +90,11 @@ async fn main() -> Result<()> {
         .filter_level(log::LevelFilter::Info)
         .init();
     let mut args: Vec<String> = std::env::args().collect();
+    let file: String = args.pop().unwrap();
     let level: u64 = args.pop().unwrap().parse().unwrap();
+    info!("File: {:?}", file);
     let mut client = ApiClient::connect("http://127.0.0.1:8080").await?;
     let now = std::time::SystemTime::now();
-    let file = String::from("00000003-0003-0003-0003-000000000003");
     let user = uuid::Uuid::new_v4().to_string();
     let _ = create_floor(&mut client, file.clone(), user.clone(), level).await?;
     let elapsed = now.elapsed().unwrap();
