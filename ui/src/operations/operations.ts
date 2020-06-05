@@ -8,6 +8,7 @@ import * as api from "../proto/api_pb"
 import { ApiClient } from "../proto/api_grpc_web_pb"
 //@ts-ignore
 import * as updates from "../proto/representation_pb"
+var fabric = require("../rendering/fabric.min").fabric;
 
 var user: string = null;
 var connection: any = null;
@@ -43,6 +44,7 @@ import { UpdateChangeMsg } from "../proto/representation_pb";
 
 var renderer: Renderer = null;
 var filename: string = "";
+var renderer2d: any = null;
 
 export interface DataObject {
     getTempRepr(): any
@@ -56,8 +58,9 @@ function initRenderer(canvas: HTMLCanvasElement) {
     renderer.initialize(canvas)
 }
 
-export function initFile(canvas: HTMLCanvasElement, name: string, user: string) {
+export function initFile(canvas: HTMLCanvasElement, canvas2d: string, name: string, user: string) {
     filename = name;
+    renderer2d = new fabric.Canvas(canvas2d);
     subToFile(name, user);
     initRenderer(canvas);
     openFile(filename)

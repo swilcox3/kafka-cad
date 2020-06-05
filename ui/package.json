@@ -26,13 +26,14 @@
     "typescript": "^3.5.2",
     "webpack": "^4.35.2",
     "webpack-cli": "^3.3.5",
-    "webpack-dev-server": "^3.7.2"
+    "webpack-dev-server": "^3.11.0"
   },
   "dependencies": {
     "babylonjs": "^4.1.0",
     "babylonjs-gui": "^4.1.0",
     "google-protobuf": "^3.11.4",
     "grpc-web": "^1.0.7",
+    "jsdom": "^16.2.2",
     "websocket-as-promised": "^0.10.1"
   }
 }

@@ -14,7 +14,21 @@
             padding: 0;
         }
 
-        #renderCanvas {
+        #wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        #renderCanvas3d {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #renderCanvas2d {
+            position: absolute;
             width: 100%;
             height: 100%;
             touch-action: none;
@@ -23,7 +37,11 @@
 </head>
 
 <body>
-    <canvas id="renderCanvas"></canvas>
+    <button id="SwapView">Swap 2D/3D</button>
+    <div id=wrapper>
+        <canvas id="renderCanvas3d"></canvas>
+        <canvas id="renderCanvas2d"></canvas>
+    </div>
 </body>
 
 </html>
