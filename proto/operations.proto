@@ -81,6 +81,38 @@ message ClientRepresentationOutput {
     repeated representation.UpdateOutputMsg outputs = 1;
 }
 
+message CreateSheetInput {
+    string name = 1;
+    geom.Point2Msg print_size = 2;
+}
+
+message CreateSheetOutput {
+    object_state.ObjectMsg sheet = 1;
+}
+
+message CustomViewMsg {
+    geom.Point3Msg camera_pos = 1;
+    geom.Point3Msg target = 2;
+}
+
+message CreateViewportInput {
+    string sheet_id = 1;
+    oneof view_type {
+        geom.EmptyMsg top = 2;
+        geom.EmptyMsg front = 3;
+        geom.EmptyMsg left = 4;
+        geom.EmptyMsg right = 5;
+        geom.EmptyMsg back = 6;
+        geom.EmptyMsg bottom = 7;
+        CustomViewMsg custom = 8;
+    }
+    geom.Point2Msg origin = 9;
+}
+
+message CreateViewportOutput {
+    object_state.ObjectMsg viewport = 1;
+}
+
 service Operations {
     rpc CreateWalls(CreateWallsInput) returns (CreateWallsOutput);
     rpc MoveObjects(MoveObjectsInput) returns (MoveObjectsOutput);
@@ -88,4 +120,6 @@ service Operations {
     rpc JoinObjects(JoinObjectsInput) returns (JoinObjectsOutput);
     rpc UpdateObjects(UpdateObjectsInput) returns (UpdateObjectsOutput);
     rpc ClientRepresentation(ClientRepresentationInput) returns (ClientRepresentationOutput);
+    rpc CreateSheet(CreateSheetInput) returns (CreateSheetOutput);
+    rpc CreateViewport(CreateViewportInput) returns (CreateViewportOutput);
 }

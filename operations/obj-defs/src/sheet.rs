@@ -5,13 +5,18 @@ use serde_json::json;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Sheet {
     id: ObjID,
+    pub name: String,
     pub print_size: Point2f,
 }
 
 impl Sheet {
-    pub fn new(print_size: Point2f) -> Sheet {
+    pub fn new(name: String, print_size: Point2f) -> Sheet {
         let id = ObjID::new_v4();
-        Sheet { id, print_size }
+        Sheet {
+            id,
+            name,
+            print_size,
+        }
     }
 }
 
@@ -31,7 +36,8 @@ impl Data for Sheet {
             data: json! ({
                 "type": "Sheet",
                 "obj": {
-                    "print_size": self.print_size
+                    "Name": self.name,
+                    "Print Size": self.print_size
                 }
             }),
         })

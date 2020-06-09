@@ -8,7 +8,7 @@ pub fn to_obj_id(id: &str) -> Result<ObjID, tonic::Status> {
     Ok(parsed)
 }
 
-pub fn to_point_2u(msg: &Option<Point2Msg>) -> Result<Point2f, tonic::Status> {
+pub fn to_point_2f(msg: &Option<Point2Msg>) -> Result<Point2f, tonic::Status> {
     if let Some(pt_msg) = msg {
         Ok(Point2f::new(pt_msg.x, pt_msg.y))
     } else {
@@ -60,14 +60,29 @@ pub fn to_wall(
     ))
 }
 
-pub fn get_view_type(view_msg: &str) -> Result<ViewType, tonic::Status> {
-    match serde_json::from_str(view_msg) {
-        Ok(view) => Ok(view),
-        Err(e) => Err(tonic::Status::invalid_argument(format!(
-            "Invalid json for view type: {:?}",
-            e
-        ))),
-    }
+pub fn to_sheet(sheet: CreateSheetInput) -> Result<Sheet, tonic::Status> {
+    Ok(Sheet::new(sheet.name, to_point_2f(&sheet.print_size)?))
+}
+
+pub fn to_viewport(viewport: CreateViewportInput) -> Result<Viewport, tonic::Status> {
+    let view = match viewport.view_type {
+        Some(create_viewport_input::ViewType::Top(..)) => ViewType::Top,
+        Some(create_viewport_input::ViewType::Front(..)) => ViewType::Front,
+        Some(create_viewport_input::ViewType::Left(..)) => ViewType::Left,
+        Some(create_viewport_input::ViewType::Right(..)) => ViewType::Right,
+        Some(create_viewport_input::ViewType::Back(..)) => ViewType::Back,
+        Some(create_viewport_input::ViewType::Bottom(..)) => ViewType::Bottom,
+        Some(create_viewport_input::ViewType::Custom(msg)) => ViewType::Custom {
+            camera_pos: to_point_3f(&msg.camera_pos)?,
+            target: to_point_3f(&msg.target)?,
+        },
+        None => return Err(tonic::Status::invalid_argument("No view type passed in")),
+    };
+    Ok(Viewport::new(
+        to_obj_id(&viewport.sheet_id)?,
+        view,
+        to_point_2f(&viewport.origin)?,
+    ))
 }
 
 pub fn from_ref_type_msg(ref_type: i32) -> Result<RefType, tonic::Status> {

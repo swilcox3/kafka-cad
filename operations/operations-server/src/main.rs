@@ -156,6 +156,34 @@ impl operations_server::Operations for OperationsService {
         }
         Ok(Response::new(ClientRepresentationOutput { outputs }))
     }
+
+    #[instrument]
+    async fn create_sheet(
+        &self,
+        request: Request<CreateSheetInput>,
+    ) -> Result<Response<CreateSheetOutput>, Status> {
+        propagate_trace(request.metadata());
+        let sheet_msg = request.into_inner();
+        let sheet = Box::new(to_sheet(sheet_msg)?) as DataBox;
+        let sheet_msg = to_object_msg(&sheet).map_err(to_status)?;
+        Ok(Response::new(CreateSheetOutput {
+            sheet: Some(sheet_msg),
+        }))
+    }
+
+    #[instrument]
+    async fn create_viewport(
+        &self,
+        request: Request<CreateViewportInput>,
+    ) -> Result<Response<CreateViewportOutput>, Status> {
+        propagate_trace(request.metadata());
+        let viewport_msg = request.into_inner();
+        let viewport = Box::new(to_viewport(viewport_msg)?) as DataBox;
+        let viewport_msg = to_object_msg(&viewport).map_err(to_status)?;
+        Ok(Response::new(CreateViewportOutput {
+            viewport: Some(viewport_msg),
+        }))
+    }
 }
 
 #[tokio::main]

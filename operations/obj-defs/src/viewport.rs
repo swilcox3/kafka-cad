@@ -11,8 +11,8 @@ pub enum ViewType {
     Back,
     Bottom,
     Custom {
-        camera_pos: Vector3f,
-        target: Vector3f,
+        camera_pos: Point3f,
+        target: Point3f,
     },
 }
 
@@ -22,7 +22,7 @@ pub struct Viewport {
     pub view: ViewType,
     /// If this is None, the viewport will delete itself on update.
     sheet: Option<ObjID>,
-    /// This is offset in pixels of the top left corner of the viewport from the top left corner of the sheet.
+    /// This is offset in meters of the top left corner of the viewport from the top left corner of the sheet.
     pub origin: Point2f,
 }
 

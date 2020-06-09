@@ -442,6 +442,146 @@ impl api_server::Api for ApiService {
         .await?;
         Ok(Response::new(DeleteObjectsOutput { offset }))
     }
+
+    #[instrument]
+    async fn create_sheet(
+        &self,
+        request: Request<CreateSheetInput>,
+    ) -> Result<Response<CreateSheetOutput>, Status> {
+        let msg = request.into_inner();
+        let mut ops_client =
+            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
+                .instrument(info_span!("ops_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let mut submit_client =
+            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
+                .instrument(info_span!("submit_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let prefix = Prefix::new(msg.prefix)?;
+        let ops_sheet = operations::CreateSheetInput {
+            name: msg.name,
+            print_size: msg.print_size,
+        };
+        let resp = ops_client
+            .create_sheet(TracedRequest::new(ops_sheet))
+            .instrument(info_span!("create_sheet"))
+            .await;
+        let object = trace_response(resp)?;
+        match object.sheet {
+            Some(obj_msg) => {
+                let id = obj_msg.id.clone();
+                let change = common::add(&prefix.user, obj_msg);
+                let resp = submit_client
+                    .submit_changes(TracedRequest::new(submit::SubmitChangesInput {
+                        file: prefix.file,
+                        user: prefix.user,
+                        offset: prefix.offset,
+                        changes: vec![change],
+                    }))
+                    .instrument(info_span!("submit_changes"))
+                    .await;
+                let mut output = trace_response(resp)?;
+                match output.offsets.pop() {
+                    Some(offset) => Ok(Response::new(CreateSheetOutput {
+                        sheet_id: id,
+                        offset,
+                    })),
+                    None => Err(Status::out_of_range(
+                        "No offsets received from submit service",
+                    )),
+                }
+            }
+            None => Err(Status::not_found(
+                "No sheet returned from operations service",
+            )),
+        }
+    }
+
+    #[instrument]
+    async fn create_viewport(
+        &self,
+        request: Request<CreateViewportInput>,
+    ) -> Result<Response<CreateViewportOutput>, Status> {
+        let msg = request.into_inner();
+        let mut ops_client =
+            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
+                .instrument(info_span!("ops_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let mut submit_client =
+            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
+                .instrument(info_span!("submit_client::connect"))
+                .await
+                .map_err(unavailable)?;
+        let prefix = Prefix::new(msg.prefix)?;
+        let view_type = match msg.view_type {
+            Some(create_viewport_input::ViewType::Top(msg)) => {
+                operations::create_viewport_input::ViewType::Top(msg)
+            }
+            Some(create_viewport_input::ViewType::Front(msg)) => {
+                operations::create_viewport_input::ViewType::Front(msg)
+            }
+            Some(create_viewport_input::ViewType::Left(msg)) => {
+                operations::create_viewport_input::ViewType::Left(msg)
+            }
+            Some(create_viewport_input::ViewType::Right(msg)) => {
+                operations::create_viewport_input::ViewType::Right(msg)
+            }
+            Some(create_viewport_input::ViewType::Back(msg)) => {
+                operations::create_viewport_input::ViewType::Back(msg)
+            }
+            Some(create_viewport_input::ViewType::Bottom(msg)) => {
+                operations::create_viewport_input::ViewType::Bottom(msg)
+            }
+            Some(create_viewport_input::ViewType::Custom(msg)) => {
+                operations::create_viewport_input::ViewType::Custom(operations::CustomViewMsg {
+                    camera_pos: msg.camera_pos,
+                    target: msg.target,
+                })
+            }
+            None => return Err(tonic::Status::invalid_argument("No view type passed in")),
+        };
+        let ops_viewport = operations::CreateViewportInput {
+            sheet_id: msg.sheet_id,
+            view_type: Some(view_type),
+            origin: msg.origin,
+        };
+        let resp = ops_client
+            .create_viewport(TracedRequest::new(ops_viewport))
+            .instrument(info_span!("create_viewport"))
+            .await;
+        let object = trace_response(resp)?;
+        match object.viewport {
+            Some(obj_msg) => {
+                let id = obj_msg.id.clone();
+                let change = common::add(&prefix.user, obj_msg);
+                let resp = submit_client
+                    .submit_changes(TracedRequest::new(submit::SubmitChangesInput {
+                        file: prefix.file,
+                        user: prefix.user,
+                        offset: prefix.offset,
+                        changes: vec![change],
+                    }))
+                    .instrument(info_span!("submit_changes"))
+                    .await;
+                let mut output = trace_response(resp)?;
+                match output.offsets.pop() {
+                    Some(offset) => Ok(Response::new(CreateViewportOutput {
+                        viewport_id: id,
+                        offset,
+                    })),
+                    None => Err(Status::out_of_range(
+                        "No offsets received from submit service",
+                    )),
+                }
+            }
+            None => Err(Status::not_found(
+                "No viewport returned from operations service",
+            )),
+        }
+    }
 }
 
 #[tokio::main]

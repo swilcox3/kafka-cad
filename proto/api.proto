@@ -89,6 +89,42 @@ message DeleteObjectsOutput {
     int64 offset = 1;
 }
 
+message CreateSheetInput {
+    OpPrefixMsg prefix = 1;
+    string name = 2;
+    geom.Point2Msg print_size = 3;
+}
+
+message CreateSheetOutput {
+    string sheet_id = 1;
+    int64 offset = 2;
+}
+
+message CustomViewMsg {
+    geom.Point3Msg camera_pos = 1;
+    geom.Point3Msg target = 2;
+}
+
+message CreateViewportInput {
+    OpPrefixMsg prefix = 1;
+    string sheet_id = 2;
+    oneof view_type {
+        geom.EmptyMsg top = 3;
+        geom.EmptyMsg front = 4;
+        geom.EmptyMsg left = 5;
+        geom.EmptyMsg right = 6;
+        geom.EmptyMsg back = 7;
+        geom.EmptyMsg bottom = 8;
+        CustomViewMsg custom = 9;
+    }
+    geom.Point2Msg origin = 10;
+}
+
+message CreateViewportOutput {
+    string viewport_id = 1;
+    int64 offset = 2;
+}
+
 service Api 
 {
     rpc BeginUndoEvent(BeginUndoEventInput) returns (BeginUndoEventOutput);
@@ -99,4 +135,6 @@ service Api
     rpc MoveObjects(MoveObjectsInput) returns (MoveObjectsOutput);
     rpc JoinObjectsAtPoint(JoinObjectsAtPointInput) returns (JoinObjectsAtPointOutput);
     rpc DeleteObjects(DeleteObjectsInput) returns (DeleteObjectsOutput);
+    rpc CreateSheet(CreateSheetInput) returns (CreateSheetOutput);
+    rpc CreateViewport(CreateViewportInput) returns (CreateViewportOutput);
 }

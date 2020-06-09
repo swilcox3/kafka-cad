@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package geom;
 
+message EmptyMsg {}
+
 message Point2Msg {
     double x = 1;
     double y = 2;
