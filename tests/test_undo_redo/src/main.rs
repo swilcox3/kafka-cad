@@ -14,6 +14,25 @@ async fn create_floor(
         user: user.clone(),
         offset: 0,
     };
+    let (sheet_id, offset) = create_sheet(
+        client,
+        &prefix,
+        String::from("Sheet 1"),
+        &Point2Msg { x: 0.4, y: 0.5 },
+    )
+    .await?;
+    prefix.offset = offset;
+    let (_, offset) = create_viewport(
+        client,
+        &prefix,
+        sheet_id,
+        create_viewport_input::ViewType::Top(EmptyMsg {}),
+        &Point2Msg { x: 0.1, y: 0.1 },
+        0.25,
+    )
+    .await?;
+    prefix.offset = offset;
+    begin_undo_event(client, &file, &user).await?;
 
     let width: f64 = 1.0;
     let height: f64 = 10.0;

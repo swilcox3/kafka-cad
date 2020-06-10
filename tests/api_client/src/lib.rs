@@ -129,3 +129,42 @@ pub async fn create_walls(
     let output = client.create_walls(Request::new(input)).await?.into_inner();
     Ok((output.offset, output.obj_ids))
 }
+
+pub async fn create_sheet(
+    client: &mut ApiClient,
+    prefix: &OpPrefixMsg,
+    name: String,
+    print_size: &Point2Msg,
+) -> Result<(String, i64)> {
+    let input = CreateSheetInput {
+        prefix: Some(prefix.clone()),
+        name,
+        print_size: Some(print_size.clone()),
+    };
+
+    let output = client.create_sheet(Request::new(input)).await?.into_inner();
+    Ok((output.sheet_id, output.offset))
+}
+
+pub async fn create_viewport(
+    client: &mut ApiClient,
+    prefix: &OpPrefixMsg,
+    sheet_id: String,
+    view_type: create_viewport_input::ViewType,
+    origin: &Point2Msg,
+    scale: f64,
+) -> Result<(String, i64)> {
+    let input = CreateViewportInput {
+        prefix: Some(prefix.clone()),
+        sheet_id,
+        view_type: Some(view_type),
+        origin: Some(origin.clone()),
+        scale,
+    };
+
+    let output = client
+        .create_viewport(Request::new(input))
+        .await?
+        .into_inner();
+    Ok((output.viewport_id, output.offset))
+}

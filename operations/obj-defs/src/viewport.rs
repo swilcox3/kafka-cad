@@ -24,16 +24,19 @@ pub struct Viewport {
     sheet: Option<ObjID>,
     /// This is offset in meters of the top left corner of the viewport from the top left corner of the sheet.
     pub origin: Point2f,
+    /// The display scale of the viewport, in a unitless fraction
+    pub scale: f64,
 }
 
 impl Viewport {
-    pub fn new(sheet: ObjID, view: ViewType, origin: Point2f) -> Viewport {
+    pub fn new(sheet: ObjID, view: ViewType, origin: Point2f, scale: f64) -> Viewport {
         let id = ObjID::new_v4();
         Viewport {
             id,
             sheet: Some(sheet),
             view,
             origin,
+            scale,
         }
     }
 }
@@ -58,6 +61,7 @@ impl Data for Viewport {
                         "view": self.view,
                         "sheet": sheet_id.to_string(),
                         "origin": self.origin,
+                        "scale": self.scale
                     }
                 }),
             }),

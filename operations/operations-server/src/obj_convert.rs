@@ -82,6 +82,7 @@ pub fn to_viewport(viewport: CreateViewportInput) -> Result<Viewport, tonic::Sta
         to_obj_id(&viewport.sheet_id)?,
         view,
         to_point_2f(&viewport.origin)?,
+        viewport.scale,
     ))
 }
 

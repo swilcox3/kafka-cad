@@ -107,6 +107,7 @@ message CreateViewportInput {
         CustomViewMsg custom = 8;
     }
     geom.Point2Msg origin = 9;
+    double scale = 10;
 }
 
 message CreateViewportOutput {

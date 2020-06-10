@@ -86,18 +86,12 @@ impl api_server::Api for ApiService {
         request: Request<BeginUndoEventInput>,
     ) -> Result<Response<BeginUndoEventOutput>, Status> {
         let msg = request.into_inner();
-        let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
-            .instrument(info_span!("undo_client::connect"))
-            .await
-            .map_err(unavailable)?;
+        let mut undo_client = common::undo_client(self.undo_url.clone()).await?;
         let req = TracedRequest::new(undo::BeginUndoEventInput {
             file: msg.file,
             user: msg.user,
         });
-        let resp = undo_client
-            .begin_undo_event(req)
-            .instrument(info_span!("undo_client::begin_undo_event"))
-            .await;
+        let resp = undo_client.begin_undo_event(req).await;
         trace_response(resp)?;
         Ok(Response::new(BeginUndoEventOutput {}))
     }
@@ -108,24 +102,14 @@ impl api_server::Api for ApiService {
         request: Request<UndoLatestInput>,
     ) -> Result<Response<UndoLatestOutput>, Status> {
         let msg = request.into_inner();
-        let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
-            .instrument(info_span!("undo_client::connect"))
-            .await
-            .map_err(unavailable)?;
-        let mut submit_client =
-            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
-                .instrument(info_span!("submit::connect"))
-                .await
-                .map_err(unavailable)?;
+        let mut undo_client = common::undo_client(self.undo_url.clone()).await?;
+        let mut submit_client = common::submit_client(self.submit_url.clone()).await?;
         let prefix = Prefix::new(msg.prefix)?;
         let req = TracedRequest::new(undo::UndoLatestInput {
             file: prefix.file.clone(),
             user: prefix.user.clone(),
         });
-        let resp = undo_client
-            .undo_latest(req)
-            .instrument(info_span!("undo_latest"))
-            .await;
+        let resp = undo_client.undo_latest(req).await;
         let changes = trace_response(resp)?;
         let resp = submit_client
             .submit_changes(TracedRequest::new(submit::SubmitChangesInput {
@@ -134,7 +118,6 @@ impl api_server::Api for ApiService {
                 offset: prefix.offset,
                 changes: changes.changes,
             }))
-            .instrument(info_span!("submit_changes"))
             .await;
         let mut output = trace_response(resp)?;
         match output.offsets.pop() {
@@ -151,22 +134,14 @@ impl api_server::Api for ApiService {
         request: Request<RedoLatestInput>,
     ) -> Result<Response<RedoLatestOutput>, Status> {
         let msg = request.into_inner();
-        let mut undo_client = undo::undo_client::UndoClient::connect(self.undo_url.clone())
-            .instrument(info_span!("undo_client::connect"))
-            .await
-            .map_err(unavailable)?;
-        let mut submit_client =
-            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
-                .instrument(info_span!("submit_client::connect"))
-                .await
-                .map_err(unavailable)?;
+        let mut undo_client = common::undo_client(self.undo_url.clone()).await?;
+        let mut submit_client = common::submit_client(self.submit_url.clone()).await?;
         let prefix = Prefix::new(msg.prefix)?;
         let resp = undo_client
             .redo_latest(TracedRequest::new(undo::RedoLatestInput {
                 file: prefix.file.clone(),
                 user: prefix.user.clone(),
             }))
-            .instrument(info_span!("redo_latest"))
             .await;
         let changes = trace_response(resp)?;
         let req = TracedRequest::new(submit::SubmitChangesInput {
@@ -175,10 +150,7 @@ impl api_server::Api for ApiService {
             offset: prefix.offset,
             changes: changes.changes,
         });
-        let resp = submit_client
-            .submit_changes(req)
-            .instrument(info_span!("submit_changes"))
-            .await;
+        let resp = submit_client.submit_changes(req).await;
         let mut output = trace_response(resp)?;
         match output.offsets.pop() {
             Some(offset) => Ok(Response::new(RedoLatestOutput { offset })),
@@ -196,20 +168,12 @@ impl api_server::Api for ApiService {
         request: Request<OpenFileInput>,
     ) -> Result<Response<Self::OpenFileStream>, Status> {
         let msg = request.into_inner();
-        let mut rep_cache_client =
-            rep_cache::rep_cache_client::RepCacheClient::connect(self.rep_cache_url.clone())
-                .instrument(info_span!("rep_cache_client::connect"))
-                .await
-                .map_err(unavailable)?;
-        let mut obj_client = objects::objects_client::ObjectsClient::connect(self.obj_url.clone())
-            .instrument(info_span!("obj_client::connect"))
-            .await
-            .map_err(unavailable)?;
+        let mut rep_cache_client = common::rep_cache_client(self.rep_cache_url.clone()).await?;
+        let mut obj_client = common::objects_client(self.obj_url.clone()).await?;
         let resp = obj_client
             .get_latest_object_list(TracedRequest::new(objects::GetLatestObjectListInput {
                 file: msg.file.clone(),
             }))
-            .instrument(info_span!("get_latest_object_list"))
             .await;
         let mut stream = trace_response(resp)?;
         let (mut tx, rx) = tokio::sync::mpsc::channel(100);
@@ -223,7 +187,6 @@ impl api_server::Api for ApiService {
                         };
                         let resp = rep_cache_client
                             .get_object_representations(TracedRequest::new(input))
-                            .instrument(info_span!("get_object_representations"))
                             .await;
                         if let Ok(mut rep) = trace_response(resp) {
                             tx.send(Ok(OpenFileOutput {
@@ -246,16 +209,8 @@ impl api_server::Api for ApiService {
         request: Request<CreateWallsInput>,
     ) -> Result<Response<CreateWallsOutput>, Status> {
         let msg = request.into_inner();
-        let mut ops_client =
-            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
-                .instrument(info_span!("ops_client::connect"))
-                .await
-                .map_err(unavailable)?;
-        let mut submit_client =
-            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
-                .instrument(info_span!("submit_client::connect"))
-                .await
-                .map_err(unavailable)?;
+        let mut ops_client = common::operations_client(self.ops_url.clone()).await?;
+        let mut submit_client = common::submit_client(self.submit_url.clone()).await?;
         let prefix = Prefix::new(msg.prefix)?;
         let mut walls = Vec::new();
         for wall in msg.walls {
@@ -268,7 +223,6 @@ impl api_server::Api for ApiService {
         }
         let resp = ops_client
             .create_walls(TracedRequest::new(operations::CreateWallsInput { walls }))
-            .instrument(info_span!("create_walls"))
             .await;
         let objects = trace_response(resp)?;
         let mut changes = Vec::new();
@@ -285,7 +239,6 @@ impl api_server::Api for ApiService {
                 offset: prefix.offset,
                 changes,
             }))
-            .instrument(info_span!("submit_changes"))
             .await;
         let mut output = trace_response(resp)?;
         match output.offsets.pop() {
@@ -305,20 +258,9 @@ impl api_server::Api for ApiService {
         request: Request<MoveObjectsInput>,
     ) -> Result<Response<MoveObjectsOutput>, Status> {
         let msg = request.into_inner();
-        let mut obj_client = objects::objects_client::ObjectsClient::connect(self.obj_url.clone())
-            .instrument(info_span!("obj_client::connect"))
-            .await
-            .map_err(unavailable)?;
-        let mut ops_client =
-            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
-                .instrument(info_span!("ops_client::connect"))
-                .await
-                .map_err(unavailable)?;
-        let mut submit_client =
-            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
-                .instrument(info_span!("submit_client::connect"))
-                .await
-                .map_err(unavailable)?;
+        let mut obj_client = common::objects_client(self.obj_url.clone()).await?;
+        let mut ops_client = common::operations_client(self.ops_url.clone()).await?;
+        let mut submit_client = common::submit_client(self.submit_url.clone()).await?;
         let prefix = Prefix::new(msg.prefix)?;
 
         let objects = common::get_objects(
@@ -335,7 +277,6 @@ impl api_server::Api for ApiService {
                 objects,
                 delta: msg.delta,
             }))
-            .instrument(info_span!("move_objects"))
             .await;
         let objects = trace_response(resp)?;
         let mut changes = Vec::new();
@@ -358,20 +299,9 @@ impl api_server::Api for ApiService {
         request: Request<JoinObjectsAtPointInput>,
     ) -> Result<Response<JoinObjectsAtPointOutput>, Status> {
         let msg = request.into_inner();
-        let mut obj_client = objects::objects_client::ObjectsClient::connect(self.obj_url.clone())
-            .instrument(info_span!("obj_client::connect"))
-            .await
-            .map_err(unavailable)?;
-        let mut ops_client =
-            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
-                .instrument(info_span!("ops_client::connect"))
-                .await
-                .map_err(unavailable)?;
-        let mut submit_client =
-            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
-                .instrument(info_span!("submit_client::connect"))
-                .await
-                .map_err(unavailable)?;
+        let mut obj_client = common::objects_client(self.obj_url.clone()).await?;
+        let mut ops_client = common::operations_client(self.ops_url.clone()).await?;
+        let mut submit_client = common::submit_client(self.submit_url.clone()).await?;
         let prefix = Prefix::new(msg.prefix)?;
 
         let mut objects = common::get_objects(
@@ -421,11 +351,7 @@ impl api_server::Api for ApiService {
         request: Request<DeleteObjectsInput>,
     ) -> Result<Response<DeleteObjectsOutput>, Status> {
         let msg = request.into_inner();
-        let mut submit_client =
-            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
-                .instrument(info_span!("submit_client::connect"))
-                .await
-                .map_err(unavailable)?;
+        let mut submit_client = common::submit_client(self.submit_url.clone()).await?;
         let prefix = Prefix::new(msg.prefix)?;
 
         let mut changes = Vec::new();
@@ -448,26 +374,15 @@ impl api_server::Api for ApiService {
         &self,
         request: Request<CreateSheetInput>,
     ) -> Result<Response<CreateSheetOutput>, Status> {
+        let mut ops_client = common::operations_client(self.ops_url.clone()).await?;
+        let mut submit_client = common::submit_client(self.submit_url.clone()).await?;
         let msg = request.into_inner();
-        let mut ops_client =
-            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
-                .instrument(info_span!("ops_client::connect"))
-                .await
-                .map_err(unavailable)?;
-        let mut submit_client =
-            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
-                .instrument(info_span!("submit_client::connect"))
-                .await
-                .map_err(unavailable)?;
         let prefix = Prefix::new(msg.prefix)?;
         let ops_sheet = operations::CreateSheetInput {
             name: msg.name,
             print_size: msg.print_size,
         };
-        let resp = ops_client
-            .create_sheet(TracedRequest::new(ops_sheet))
-            .instrument(info_span!("create_sheet"))
-            .await;
+        let resp = ops_client.create_sheet(TracedRequest::new(ops_sheet)).await;
         let object = trace_response(resp)?;
         match object.sheet {
             Some(obj_msg) => {
@@ -480,7 +395,6 @@ impl api_server::Api for ApiService {
                         offset: prefix.offset,
                         changes: vec![change],
                     }))
-                    .instrument(info_span!("submit_changes"))
                     .await;
                 let mut output = trace_response(resp)?;
                 match output.offsets.pop() {
@@ -505,16 +419,8 @@ impl api_server::Api for ApiService {
         request: Request<CreateViewportInput>,
     ) -> Result<Response<CreateViewportOutput>, Status> {
         let msg = request.into_inner();
-        let mut ops_client =
-            operations::operations_client::OperationsClient::connect(self.ops_url.clone())
-                .instrument(info_span!("ops_client::connect"))
-                .await
-                .map_err(unavailable)?;
-        let mut submit_client =
-            submit::submit_changes_client::SubmitChangesClient::connect(self.submit_url.clone())
-                .instrument(info_span!("submit_client::connect"))
-                .await
-                .map_err(unavailable)?;
+        let mut ops_client = common::operations_client(self.ops_url.clone()).await?;
+        let mut submit_client = common::submit_client(self.submit_url.clone()).await?;
         let prefix = Prefix::new(msg.prefix)?;
         let view_type = match msg.view_type {
             Some(create_viewport_input::ViewType::Top(msg)) => {
@@ -547,10 +453,10 @@ impl api_server::Api for ApiService {
             sheet_id: msg.sheet_id,
             view_type: Some(view_type),
             origin: msg.origin,
+            scale: msg.scale,
         };
         let resp = ops_client
             .create_viewport(TracedRequest::new(ops_viewport))
-            .instrument(info_span!("create_viewport"))
             .await;
         let object = trace_response(resp)?;
         match object.viewport {
@@ -564,7 +470,6 @@ impl api_server::Api for ApiService {
                         offset: prefix.offset,
                         changes: vec![change],
                     }))
-                    .instrument(info_span!("submit_changes"))
                     .await;
                 let mut output = trace_response(resp)?;
                 match output.offsets.pop() {

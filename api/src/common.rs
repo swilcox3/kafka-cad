@@ -6,6 +6,56 @@ use submit::*;
 use tonic::transport::Channel;
 use tonic::Status;
 
+pub async fn undo_client(
+    undo_url: String,
+) -> Result<undo::undo_client::UndoClient<Channel>, Status> {
+    let undo_client = undo::undo_client::UndoClient::connect(undo_url)
+        .instrument(info_span!("undo_client::connect"))
+        .await
+        .map_err(unavailable)?;
+    Ok(undo_client)
+}
+
+pub async fn submit_client(
+    submit_url: String,
+) -> Result<submit::submit_changes_client::SubmitChangesClient<Channel>, Status> {
+    let submit_client = submit::submit_changes_client::SubmitChangesClient::connect(submit_url)
+        .instrument(info_span!("submit::connect"))
+        .await
+        .map_err(unavailable)?;
+    Ok(submit_client)
+}
+
+pub async fn rep_cache_client(
+    rep_cache_url: String,
+) -> Result<rep_cache::rep_cache_client::RepCacheClient<Channel>, Status> {
+    let rep_cache_client = rep_cache::rep_cache_client::RepCacheClient::connect(rep_cache_url)
+        .instrument(info_span!("rep_cache_client::connect"))
+        .await
+        .map_err(unavailable)?;
+    Ok(rep_cache_client)
+}
+
+pub async fn objects_client(
+    objects_url: String,
+) -> Result<objects::objects_client::ObjectsClient<Channel>, Status> {
+    let obj_client = objects::objects_client::ObjectsClient::connect(objects_url)
+        .instrument(info_span!("obj_client::connect"))
+        .await
+        .map_err(unavailable)?;
+    Ok(obj_client)
+}
+
+pub async fn operations_client(
+    operations_url: String,
+) -> Result<operations::operations_client::OperationsClient<Channel>, Status> {
+    let ops_client = operations::operations_client::OperationsClient::connect(operations_url)
+        .instrument(info_span!("ops_client::connect"))
+        .await
+        .map_err(unavailable)?;
+    Ok(ops_client)
+}
+
 pub async fn get_objects(
     client: &mut objects_client::ObjectsClient<Channel>,
     file: &str,
@@ -25,7 +75,6 @@ pub async fn get_objects(
             file: String::from(file),
             obj_ids: obj_offsets,
         }))
-        .instrument(info_span!("get_objects"))
         .await;
     let changes = trace_response(resp)?;
     let mut objects = Vec::new();
@@ -84,7 +133,6 @@ pub async fn submit_changes(
             offset,
             changes,
         }))
-        .instrument(info_span!("submit_changes"))
         .await;
     let mut output = trace_response(resp)?;
     match output.offsets.pop() {
