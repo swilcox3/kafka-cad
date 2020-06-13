@@ -1,14 +1,13 @@
 import { Point3d, Vector3d } from "../utils/math"
 //@ts-ignore
 import WebsocketAsPromised from "websocket-as-promised";
-import * as BABYLON from 'babylonjs'
 //@ts-ignore
 import * as geom from "../proto/geom_pb"
 import * as api from "../proto/api_pb"
 import { ApiClient } from "../proto/api_grpc_web_pb"
 //@ts-ignore
 import * as updates from "../proto/representation_pb"
-var fabric = require("../rendering/fabric.min").fabric;
+import * as render2D from "../rendering/renderer2D"
 
 var user: string = null;
 var connection: any = null;
@@ -44,7 +43,6 @@ import { UpdateChangeMsg } from "../proto/representation_pb";
 
 var renderer: Renderer = null;
 var filename: string = "";
-var renderer2d: any = null;
 
 export interface DataObject {
     getTempRepr(): any
@@ -60,9 +58,10 @@ function initRenderer(canvas: HTMLCanvasElement) {
 
 export function initFile(canvas: HTMLCanvasElement, canvas2d: string, name: string, user: string) {
     filename = name;
-    renderer2d = new fabric.Canvas(canvas2d);
     subToFile(name, user);
     initRenderer(canvas);
+    render2D.initialize(canvas2d);
+    render2D.test();
     openFile(filename)
 }
 

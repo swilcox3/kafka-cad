@@ -23,7 +23,7 @@ export class Renderer {
         this._engine = engine;
         // This creates a basic Babylon Scene object (non-mesh)
         const scene = new BABYLON.Scene(engine);
-        scene.debugLayer.show();
+        //scene.debugLayer.show();
         this._scene = scene;
         this._transform = new BABYLON.TransformNode("rootTransform", scene);
         this._transform.rotation = new BABYLON.Vector3(Math.PI / 2, 0, 0);
