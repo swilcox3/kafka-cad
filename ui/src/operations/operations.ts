@@ -35,7 +35,13 @@ export async function setConnection(connection_url: string) {
             }
         }
     });
-    await connection.open();
+    try {
+        await connection.open();
+    }
+    catch (e) {
+        console.log("Websocket error: " + e);
+        connection = null;
+    }
 }
 
 import { Renderer } from '../rendering/renderer'
@@ -74,7 +80,9 @@ export function subToFile(name: string, user: string) {
     };
     var msg = JSON.stringify(sub);
     console.log("Subscribing to " + msg);
-    connection.send(msg);
+    if (connection) {
+        connection.send(msg);
+    }
 }
 
 export function openFile(file_id: string) {

@@ -4,8 +4,7 @@ var renderer2d: any = null;
 
 export function initialize(canvas: string) {
     renderer2d = new fabric.Canvas(canvas);
-    fabric.Object.prototype.transparentCorners = false;
-    renderer2d.setBackgroundColor("gray", renderer2d.renderAll.bind(renderer2d));
+    renderer2d.setBackgroundColor("white", renderer2d.renderAll.bind(renderer2d));
     window.addEventListener('resize', resizeCanvas, false);
     renderer2d.on('mouse:down', function (options) {
         console.log(options.target);
@@ -21,13 +20,19 @@ export function initialize(canvas: string) {
 
 export function createSheet(name: string, id: string, width: number, height: number) {
     var sheetRect = new fabric.Rect({
-        width: width, height: height, opacity: 1, fill: "white", selectable: false, left: 10, top: 10
+        width: width, height: height, opacity: 1, fill: "white", left: 10, top: 10, transparentCorners: false
     });
-    var viewGroup = new fabric.Group([], {});
-    var sheetGroup = new fabric.Group([sheetRect, viewGroup]);
+    sheetRect.on("mousedown", function () {
+        console.log("You clicked the sheet background");
+    })
+    var viewGroup = new fabric.Group([], { transparentCorners: false });
+    var sheetGroup = new fabric.Group([sheetRect, viewGroup], { transparentCorners: false });
+    sheetGroup.on("mousedown", function (opt) {
+        console.log("You clicked the sheet group");
+    })
 
-    sheetGroup.name = name;
-    sheetGroup.id = id;
+    sheetGroup.sheet_name = name;
+    sheetGroup.sheet_id = id;
 
     console.log("renderer add");
     renderer2d.add(sheetGroup);
@@ -35,21 +40,22 @@ export function createSheet(name: string, id: string, width: number, height: num
 
 export function createViewport(sheet_id: string, view_id: string, posX: number, posY: number, scale: number) {
     var viewport = new fabric.Group([], {
-        left: posX, top: posY
+        left: posX, top: posY, transparentCorners: false
     });
-    viewport.id = view_id;
+    viewport.view_id = view_id;
     viewport.sheet_id = sheet_id;
-    viewport.scale = scale;
-    renderer2d.getObjects("group").forEach(sheet => {
-        if (sheet.id === sheet_id) {
+    viewport.viewport_scale = scale;
+    /*renderer2d.getObjects("group").forEach(sheet => {
+        if (sheet.sheet_id === sheet_id) {
             var viewGroup = sheet.item(1);
             viewGroup.addWithUpdate(viewport);
         }
-    });
+    });*/
+    renderer2d.add(viewport);
 }
 
 export function addObjectRep(shape: any) {
-    renderer2d.getObjects("group").forEach(sheet => {
+    /*renderer2d.getObjects("group").forEach(sheet => {
         console.log(sheet);
         var viewGroup = sheet.item(1);
         console.log(viewGroup);
@@ -57,16 +63,24 @@ export function addObjectRep(shape: any) {
             console.log(view);
             view.addWithUpdate(shape);
         })
+    });*/
+    renderer2d.getObjects("group").forEach(view => {
+        view.addWithUpdate(shape);
     });
 }
 
 export function test() {
     console.log("Are we not cached?");
     const id = "test id 1";
-    createSheet("Test Sheet", id, 2000, 1000);
+    //createSheet("Test Sheet", id, 2000, 1000);
     createViewport(id, "view id", 100, 100, 1);
-    var rect = new fabric.Rect({ width: 100, height: 100, left: 0, top: 0, fill: "red" });
+    var rect = new fabric.Rect({ width: 100, height: 100, fill: "red", transparentCorners: false });
+    rect.on("mousedown", opts => {
+        console.log("Hey there! " + opts);
+    });
     addObjectRep(rect);
+    rect.set("left", 10);
+    rect.set("top", 10);
     console.log(renderer2d);
     renderer2d.requestRenderAll();
 }
