@@ -1,7 +1,7 @@
 # kafka-cad
 ![Build](https://github.com/swilcox3/kafka-cad/workflows/Build/badge.svg) ![Unit Tests](https://github.com/swilcox3/kafka-cad/workflows/Unit%20Tests/badge.svg)
 
-_This project is under active development and is no way ready for actual use.  Project management on [Trello](https://trello.com/b/p26TaV27).
+_This project is under active development and is no way ready for actual use.  Project management on [Trello](https://trello.com/b/p26TaV27)._
 
 This is a cloud-native architectural CAD prototype, with these design pillars:
 1. The user will never lose work or corrupt data.
