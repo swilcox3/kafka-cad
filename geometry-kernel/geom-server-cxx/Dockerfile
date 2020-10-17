@@ -43,7 +43,7 @@ COPY ./proto/geom_kernel.proto ./proto/geom_kernel.proto
 COPY ./geometry-kernel/geom-server-cxx/ ./geometry-kernel/geom-server-cxx
 
 RUN cd geometry-kernel/geom-server-cxx && mkdir build && cd build && cmake ..
-RUN cd geometry-kernel/geom-server-cxx/build && make
+RUN cd geometry-kernel/geom-server-cxx/build && make -j $(nproc)
 
 ENV LD_LIBRARY_PATH=/usr/local/lib
 EXPOSE 5000
