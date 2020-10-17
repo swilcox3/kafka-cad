@@ -17,6 +17,6 @@ cgmath = {version = "0.17.0", features = ["serde"]}
 typetag = "0.1"
 downcast-rs = "1.1.1"
 async-trait = "0.1.24"
-tonic = "0.2.1"
+tonic = "0.3.1"
 enum-iterator = "0.6.0"
 bitflags = "1.2.1"

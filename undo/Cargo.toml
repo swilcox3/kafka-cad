@@ -12,7 +12,7 @@ redis = "0.15.1"
 rdkafka = {version = "0.23.1", features = ["cmake-build"]}
 futures = "0.3.4"
 prost = "0.6"
-tonic = "0.2.1"
+tonic = "0.3.1"
 tokio = { version = "0.2", features = ["macros", "sync", "stream", "time", "test-util"] }
 bincode = "1.2.1"
 serde = {version = "1.0.104", features = ["derive"]}
