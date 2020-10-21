@@ -44,6 +44,8 @@ The general control flow goes like this:
 
 Distributed tracing (Jaeger) is available at localhost:16686 and performance monitoring (cAdvisor) is available at localhost:22001.  Local performance is not indicative of how the product will run at scale because all components are sharing the same resources, and because each service only has one instance.
 
+[](./tests/test_undo_redo/five_actors.gif)
+This is the undo/redo test with five simultaneous headless actors.  Each actor creates four walls, moves one wall, and deletes the moved wall.  Then it undoes, redoes, and undoes the delete, then undoes the move.  The web viewer updates as it receives events coming in from the backend.  Again, performance here is not indicative of performance at scale because this was recorded with everything running on a single computer (3.4 GHz Intel i7-4770, 16 GB RAM).
 
 
 

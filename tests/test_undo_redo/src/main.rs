@@ -97,9 +97,10 @@ async fn create_floor(
     prefix.offset = move_objects(client, &prefix, vec![ids[1].clone()], &delta).await?;
     prefix.offset = delete_objects(client, &prefix, vec![ids[1].clone()]).await?;
     prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
-    info!("Undone");
     prefix.offset = redo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
-    info!("Redone");
+    prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
+    prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
+    prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
     Ok((prefix.offset, ids))
 }
 

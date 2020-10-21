@@ -1,3 +1,5 @@
+import { Rect2DMsg } from "../proto/geom_pb";
+
 var fabric = require("./fabric.min").fabric;
 
 var renderer2d: any = null;
@@ -18,26 +20,6 @@ export function initialize(canvas: string) {
     resizeCanvas();
 }
 
-export function createSheet(name: string, id: string, width: number, height: number) {
-    var sheetRect = new fabric.Rect({
-        width: width, height: height, opacity: 1, fill: "white", left: 10, top: 10, transparentCorners: false
-    });
-    sheetRect.on("mousedown", function () {
-        console.log("You clicked the sheet background");
-    })
-    var viewGroup = new fabric.Group([], { transparentCorners: false });
-    var sheetGroup = new fabric.Group([sheetRect, viewGroup], { transparentCorners: false });
-    sheetGroup.on("mousedown", function (opt) {
-        console.log("You clicked the sheet group");
-    })
-
-    sheetGroup.sheet_name = name;
-    sheetGroup.sheet_id = id;
-
-    console.log("renderer add");
-    renderer2d.add(sheetGroup);
-}
-
 export function createViewport(sheet_id: string, view_id: string, posX: number, posY: number, scale: number) {
     var viewport = new fabric.Group([], {
         left: posX, top: posY, transparentCorners: false
@@ -45,27 +27,20 @@ export function createViewport(sheet_id: string, view_id: string, posX: number, 
     viewport.view_id = view_id;
     viewport.sheet_id = sheet_id;
     viewport.viewport_scale = scale;
-    /*renderer2d.getObjects("group").forEach(sheet => {
-        if (sheet.sheet_id === sheet_id) {
-            var viewGroup = sheet.item(1);
-            viewGroup.addWithUpdate(viewport);
-        }
-    });*/
+    viewport.view_type = "top";
     renderer2d.add(viewport);
 }
 
 export function addObjectRep(shape: any) {
-    /*renderer2d.getObjects("group").forEach(sheet => {
-        console.log(sheet);
-        var viewGroup = sheet.item(1);
-        console.log(viewGroup);
-        viewGroup.getObjects().forEach(view => {
-            console.log(view);
-            view.addWithUpdate(shape);
-        })
-    });*/
     renderer2d.getObjects("group").forEach(view => {
-        view.addWithUpdate(shape);
+        var originalLeft = shape.left;
+        var originalTop = shape.top;
+        if (view.view_type === shape.view_type) {
+            view.addWithUpdate(shape);
+            shape.left = originalLeft;
+            shape.top = originalTop;
+            shape.setCoords();
+        }
     });
 }
 
@@ -73,14 +48,10 @@ export function test() {
     console.log("Are we not cached?");
     const id = "test id 1";
     //createSheet("Test Sheet", id, 2000, 1000);
-    createViewport(id, "view id", 100, 100, 1);
-    var rect = new fabric.Rect({ width: 100, height: 100, fill: "red", transparentCorners: false });
-    rect.on("mousedown", opts => {
-        console.log("Hey there! " + opts);
-    });
+    createViewport(id, "view id", 1000, 1000, 1);
+    var rect = new fabric.Rect({ width: 500, height: 500, fill: "red", transparentCorners: false });
+    rect.view_type = "top";
     addObjectRep(rect);
-    rect.set("left", 10);
-    rect.set("top", 10);
     console.log(renderer2d);
     renderer2d.requestRenderAll();
 }
