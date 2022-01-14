@@ -1,9 +1,12 @@
+use ::api_client::producer::*;
+use ::api_client::subscriber::*;
 use ::api_client::*;
 use anyhow::Result;
 use log::*;
 
 async fn create_floor(
     client: &mut ApiClient,
+    subscriber: &mut Socket,
     file: String,
     user: String,
     level: u64,
@@ -22,6 +25,7 @@ async fn create_floor(
     )
     .await?;
     prefix.offset = offset;
+    let msg = read_message(subscriber)?;
     let (_, offset) = create_viewport(
         client,
         &prefix,
@@ -32,6 +36,7 @@ async fn create_floor(
     )
     .await?;
     prefix.offset = offset;
+    let msg = read_message(subscriber)?;
     begin_undo_event(client, &file, &user).await?;
 
     let width: f64 = 1.0;
@@ -82,11 +87,18 @@ async fn create_floor(
         },
     ];
     let (offset, ids) = create_walls(client, &prefix, walls).await?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
     prefix.offset = offset;
     prefix.offset = join_objs_at_pt(client, &prefix, &ids[0], &ids[1], &pt_2).await?;
     prefix.offset = join_objs_at_pt(client, &prefix, &ids[1], &ids[2], &pt_3).await?;
-    prefix.offset = join_objs_at_pt(client, &prefix, &ids[2], &ids[3], &pt_4).await?;
     prefix.offset = join_objs_at_pt(client, &prefix, &ids[3], &ids[0], &pt_1).await?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
 
     begin_undo_event(client, &file, &user).await?;
     let delta = Vector3Msg {
@@ -95,8 +107,17 @@ async fn create_floor(
         z: 0.0,
     };
     prefix.offset = move_objects(client, &prefix, vec![ids[1].clone()], &delta).await?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
     prefix.offset = delete_objects(client, &prefix, vec![ids[1].clone()]).await?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
     prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
+    let msg = read_message(subscriber)?;
     prefix.offset = redo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
     prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
     prefix.offset = undo_latest(client, &prefix.file, &prefix.user, prefix.offset).await?;
@@ -114,9 +135,17 @@ async fn main() -> Result<()> {
     let level: u64 = args.pop().unwrap().parse().unwrap();
     info!("File: {:?}", file);
     let mut client = ApiClient::connect("http://127.0.0.1:8080").await?;
+    let mut subscriber = connect("ws://127.0.0.1:7000")?;
     let now = std::time::SystemTime::now();
     let user = uuid::Uuid::new_v4().to_string();
-    let _ = create_floor(&mut client, file.clone(), user.clone(), level).await?;
+    let _ = create_floor(
+        &mut client,
+        &mut subscriber,
+        file.clone(),
+        user.clone(),
+        level,
+    )
+    .await?;
     let elapsed = now.elapsed().unwrap();
     info!("Test took {:?} seconds", elapsed.as_secs_f32());
 

@@ -347,13 +347,16 @@ name = "api_client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger",
  "futures-core",
  "futures-util",
+ "http",
  "log",
  "prost",
+ "tokio-tungstenite",
  "tonic",
  "tonic-build",
+ "tungstenite",
+ "url",
 ]
 
 [[package]]

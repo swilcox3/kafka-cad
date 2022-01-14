@@ -214,12 +214,14 @@ impl api_server::Api for ApiService {
         let prefix = Prefix::new(msg.prefix)?;
         let mut walls = Vec::new();
         for wall in msg.walls {
-            walls.push(operations::WallMsg {
+            let wall_msg = operations::WallMsg {
                 first_pt: wall.first_pt,
                 second_pt: wall.second_pt,
                 width: wall.width,
                 height: wall.height,
-            });
+            };
+            info!("Creating wall {:?}", wall_msg);
+            walls.push(wall_msg);
         }
         let resp = ops_client
             .create_walls(TracedRequest::new(operations::CreateWallsInput { walls }))

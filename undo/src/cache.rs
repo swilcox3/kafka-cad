@@ -241,6 +241,10 @@ pub async fn update_undo_cache(
 
 async fn begin_event(redis_conn: &mut MultiplexedConnection, stack: &str) -> Result<(), UndoError> {
     let event = Uuid::new_v4().to_string();
+    info!(
+        "Creating new event with id {:?} for stack {:?}",
+        event, stack
+    );
     push_event_to_stack(redis_conn, stack, &event).await?;
     Ok(())
 }
@@ -272,6 +276,7 @@ async fn get_current_event_and_list(
     stack: &str,
 ) -> Result<(String, Vec<UndoEntry>), UndoError> {
     let event = get_current_event_in_stack(redis_conn, file, user, stack).await?;
+    debug!("Got event {:?} from stack {:?}", event, stack);
     let list = get_event_entries(redis_conn, &event).await?;
     debug!("got list: {:?}", list);
     Ok((event, list))
@@ -284,6 +289,7 @@ pub async fn undo(
 ) -> Result<(String, Vec<UndoEntry>), UndoError> {
     let undo_stack = undo_stack(file, user);
     let results = get_current_event_and_list(redis_conn, file, user, &undo_stack).await?;
+    info!("About to undo {:?}", results.0);
     begin_redo_event(redis_conn, file, user).await?;
     Ok(results)
 }
@@ -295,6 +301,7 @@ pub async fn redo(
 ) -> Result<(String, Vec<UndoEntry>), UndoError> {
     let redo_stack = redo_stack(file, user);
     let results = get_current_event_and_list(redis_conn, file, user, &redo_stack).await?;
+    info!("About to redo {:?}", results.0);
     begin_undo_event(redis_conn, file, user).await?;
     Ok(results)
 }
