@@ -33,7 +33,7 @@
     "babylonjs-gui": "^4.1.0",
     "google-protobuf": "^3.11.4",
     "grpc-web": "^1.0.7",
-    "jsdom": "^16.2.2",
+    "jsdom": "^16.5.0",
     "websocket-as-promised": "^0.10.1"
   }
 }
